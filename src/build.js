@@ -221,7 +221,7 @@ function buildDocument(ctx, pages = {}) {
   const attRow = text => new TableRow({ children: [cell(text, span2, { colSpan: 2, italics: true }), cell('—', wC[2], { align: C }), cell('', wC[3])] });
   c.mdk.forEach((md, mi) => {
     rows.push(shadeRow(`Раздел ${mi + 1}. ${md.code} ${md.name}`, md.T + md.P + (md.K || 0)));
-    let n = 0, tn = 0;
+    let n = 0, tn = 0, pw = 0;
     md.blocks.forEach(b => {
       rows.push(semRow(b.label, b.hours));
       b.themes.forEach(x => {
@@ -229,17 +229,16 @@ function buildDocument(ctx, pages = {}) {
         const T = x.theory.length * LESSON, P = x.practice.reduce((s, y) => s + y[1], 0);
         const prRows = [];
         x.practice.forEach(([title, h]) => { const k = h / LESSON; for (let i = 1; i <= k; i++) prRows.push(part(title, i, k)); });
-        const span = 1 + x.theory.length + 1 + prRows.length;
+        const span = 1 + x.theory.length + prRows.length;
         const lr = lrStr(lrFromOk(parseCodes(x.codes).ok));
         rows.push(new TableRow({ children: [
           cell([cp(`Тема ${mi + 1}.${tn}. ${x.name}`, { bold: true }), cp(`Всего: ${T + P} ч`, { italics: true })], wC[0], { rowSpan: span }),
           cell([cp('Содержание учебного материала', { bold: true }), cp(x.summary)], wC[1]),
-          cell(String(T), wC[2], { align: C, bold: true }),
+          cell('', wC[2]),
           cell([x.codes, lr], wC[3], { rowSpan: span }),
         ] }));
         x.theory.forEach(t => { rows.push(new TableRow({ children: [cell(`${++n}. ${t}`, wC[1]), cell(String(LESSON), wC[2], { align: C })] })); allLessons.push(t); });
-        rows.push(new TableRow({ children: [cell('В том числе практических занятий', wC[1], { bold: true }), cell(String(P), wC[2], { align: C, bold: true })] }));
-        prRows.forEach(t => rows.push(new TableRow({ children: [cell(`${++n}. ${t}`, wC[1]), cell(String(LESSON), wC[2], { align: C })] })));
+        prRows.forEach(t => rows.push(new TableRow({ children: [cell(`${++n}. Практическая работа № ${++pw}. ${t}`, wC[1]), cell(String(LESSON), wC[2], { align: C })] })));
       });
       if (b.K && md.course_project) {
         const cpj = md.course_project;
