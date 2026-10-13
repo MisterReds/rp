@@ -1,17 +1,49 @@
-// Сборка единого документа: рабочая программа ПМ + фонд оценочных средств (приложение 1).
+// Сборка единого документа по шаблону ГБПОУ «СПЭТ»: рабочая программа ПМ (разделы 1–4) + фонд оценочных средств (раздел 5).
+// Названия разделов, тем, содержание тем, практические работы и виды работ практик берутся из ПОП без изменений.
 'use strict';
 const fs = require('fs');
 const path = require('path');
 const H = require('./docx_helpers.js');
-const { D, mm, P_MARG, P_W, L_MARG, L_W, C, run, p, center, caption, h1, h2, h3, bullets, olist, pageBreak, cp, cell, cellBullets, table, hdr, simpleTable, widths, noBorders } = H;
-const { Document, Packer, Paragraph, TextRun, TableRow, Footer, PageNumber, AlignmentType, PageOrientation, TabStopType, Tab } = D;
-const { loadPlan, moduleFromPlan, semLabel, FORM_NAMES } = require('./plan.js');
-const { validate, parseCodes, examForms, OK_CODES } = require('./validate.js');
-const { LESSON, PP_DAY } = require('./skeleton.js');
+const { D, mm, P_MARG, P_W, L_MARG, L_W, C, p, center, caption, h1, h2, h3, bullets, olist, pageBreak, cp, cell, table, hdr, simpleTable, widths } = H;
+const { Document, Packer, Paragraph, TextRun, TableRow, Footer, PageNumber, AlignmentType, PageOrientation, VerticalAlign } = D;
+const { loadPlan, semLabel } = require('./plan.js');
+const { validate, parseCodes, OK_CODES } = require('./validate.js');
+const { LESSON, mdkBlocks, practiceLabel } = require('./sequence.js');
+const PP_DAY = 6;
 
 const LETTERS = ['а', 'б', 'в', 'г'];
+const L = AlignmentType.LEFT;
 const uniq = a => [...new Set(a)];
-const sortCodes = a => uniq(a).sort((x, y) => x.localeCompare(y, 'ru', { numeric: true }));
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const endDot = s => (/[.!?…]$/.test(s.trim()) ? s.trim() : s.trim() + '.');
+
+// Формы аттестации: краткая отметка в таблице и название в родительном падеже
+const FORM = {
+  'Э': ['Э', 'экзамена', 'экзамен'], 'ДЗ': ['ДЗ', 'дифференцированного зачёта', 'дифференцированный зачёт'], 'З': ['З', 'зачёта', 'зачёт'],
+  'ДР': ['КР', 'контрольной работы', 'контрольная работа'], 'КР': ['КР', 'контрольной работы', 'контрольная работа'],
+};
+const formGen = f => (FORM[f] ? FORM[f][1] : f);
+const formNom = f => (FORM[f] ? FORM[f][2] : f);
+const formAbbr = f => (FORM[f] ? FORM[f][0] : f);
+
+// Сжатие номеров: [1,2,3,5] -> "1–3, 5"
+function ranges(nums) {
+  const a = uniq(nums).sort((x, y) => x - y);
+  const out = [];
+  for (let i = 0; i < a.length; i++) {
+    let j = i; while (j + 1 < a.length && a[j + 1] === a[j] + 1) j++;
+    out.push(j - i >= 2 ? `${a[i]}–${a[j]}` : (j > i ? `${a[i]}, ${a[j]}` : `${a[i]}`));
+    i = j;
+  }
+  return out.join(', ');
+}
+const okStr = oks => (oks.length ? 'ОК ' + ranges(oks.map(x => Number(x.slice(3)))).replace(/\b(\d)\b/g, '0$1') : '');
+const pkStr = pks => {
+  if (!pks.length) return '';
+  const byMod = {};
+  pks.forEach(k => { const [a, b] = k.slice(3).split('.').map(Number); (byMod[a] = byMod[a] || []).push(b); });
+  return 'ПК ' + Object.entries(byMod).map(([a, bs]) => ranges(bs).split(', ').map(r => r.split('–').map(x => `${a}.${x}`).join('–')).join(', ')).join(', ');
+};
 
 function loadProject(projectFile) {
   const dir = path.dirname(path.resolve(projectFile));
@@ -21,6 +53,7 @@ function loadProject(projectFile) {
     dir, project: pj,
     fgos: JSON.parse(fs.readFileSync(rd(pj.fgos), 'utf8')),
     vosp: JSON.parse(fs.readFileSync(rd(pj.vospitanie), 'utf8')),
+    pop: pj.pop ? JSON.parse(fs.readFileSync(rd(pj.pop), 'utf8')) : null,
     plan: loadPlan(rd(pj.plan)),
     contentPath: rd(pj.content || 'content.json'),
     outputPath: rd(pj.output || 'out.docx'),
@@ -29,586 +62,567 @@ function loadProject(projectFile) {
   return ctx;
 }
 
-// "ПК 1.1, ПК 1.2; ОК 01" из множества кодов
-function codesStr(pk, ok) {
-  const parts = [];
-  if (pk.length) parts.push(sortCodes(pk).join(', '));
-  if (ok.length) parts.push(sortCodes(ok).join(', '));
-  return parts.join('; ');
-}
-
-function buildDocument(ctx, pages = {}) {
-  const { project: pj, fgos, vosp, content: c } = ctx;
+function buildDocument(ctx) {
+  const { project: pj, fgos, vosp, pop, content: c } = ctx;
   const org = pj.org;
   const PK = c.meta.pk;
   const pkCodes = PK.map(x => x[0]);
   const OK = fgos.ok;
   const LR = vosp.lr;
-  // По умолчанию — все ЛР, соотнесённые с ОК в программе воспитания; подмножество — только если в project.json "lr_subset": true
-  const okLrMod = (pj.lr_subset && vosp.ok_lr_module) ? vosp.ok_lr_module : vosp.ok_lr;
-  const lrFromOk = oks => uniq(oks.flatMap(o => okLrMod[o] || [])).sort((a, b) => a - b);
-  const LR_MOD = lrFromOk(OK_CODES);
+  const okLr = vosp.ok_lr;
   const LR_ALL = Object.keys(LR).map(Number).sort((a, b) => a - b);
-  const LR_FREE = LR_ALL.filter(n => !LR_MOD.includes(n));
-  const lrStr = arr => (arr.length ? 'ЛР ' + arr.join(', ') : '');
+  const lrFromOk = oks => uniq(oks.flatMap(o => okLr[o] || [])).sort((a, b) => a - b);
+  const lrStr = arr => (arr.length ? 'ЛР ' + ranges(arr) : '');
   const pmTitle = `${c.meta.pm} ${c.meta.pm_name}`;
-  const allLessons = [];
-
-  // ---------- титульный лист ----------
-  const half = Math.floor(P_W / 2);
-  const approval = table([half, P_W - half], [new TableRow({ children: [
-    cell(['РАССМОТРЕНО', 'на заседании ПЦК', org.pcc, 'Протокол № ____', 'от «___» ________ 20__ г.', 'Председатель ПЦК', '__________ /__________/'], half, { size: 24 }),
-    cell(['УТВЕРЖДАЮ', org.approver, '__________ /__________/', '«___» ________ 20__ г.'], P_W - half, { size: 24 }),
-  ] })], { borders: noBorders });
-  const titlePage = [
-    center(org.ministry), center(org.type), center(org.name, { after: 600 }),
-    approval,
-    center('', { before: 1800 }),
-    center('РАБОЧАЯ ПРОГРАММА ПРОФЕССИОНАЛЬНОГО МОДУЛЯ', { bold: true, size: 28, after: 240 }),
-    center(pmTitle.toUpperCase(), { bold: true, size: 28, after: 480 }),
-    center(`по специальности ${fgos.code} ${fgos.name}`),
-    center(`квалификация: ${fgos.qualification}`),
-    center(`форма обучения: ${pj.form}`),
-    center(`учебный план группы ${pj.group}`, { after: 3200 }),
-    center(`${org.city}, ${pj.year} г.`),
-    pageBreak(),
-  ];
-  const normative = [
-    `Федерального государственного образовательного стандарта среднего профессионального образования по специальности ${fgos.code} ${fgos.name}, утверждённого ${fgos.order};`,
-    `примерной образовательной программы по специальности ${fgos.code} ${fgos.name}, включённой в реестр примерных образовательных программ (регистрационный номер ${pj.pop_reg_number || '______'});`,
-    ...(fgos.professional_standards || []).map(s => s.replace(/^п/, 'п') + ';'),
-    'Порядка организации и осуществления образовательной деятельности по образовательным программам среднего профессионального образования, утверждённого приказом Министерства просвещения Российской Федерации от 24 августа 2022 г. № 762;',
-    'Положения о практической подготовке обучающихся, утверждённого приказом Министерства науки и высшего образования Российской Федерации № 885, Министерства просвещения Российской Федерации № 390 от 5 августа 2020 г.;',
-    `${vosp.title.replace(/^Р/, 'р')};`,
-    ...(pj.extra_normative || []).map(s => s + ';'),
-    `учебного плана образовательной программы «${fgos.name}» (группа ${pj.group}).`,
-  ];
-  const back = [
-    p(`Рабочая программа профессионального модуля ${c.meta.pm} «${c.meta.pm_name}» разработана на основе:`, { after: 120 }),
-    ...olist(normative),
-    p('', { after: 240 }),
-    p(`Организация-разработчик: ${org.type.toLowerCase()} ${org.name} (${org.short}).`, { after: 240 }),
-    p(`Разработчик: ${pj.people.developer}.`, { after: 240 }),
-    p(`Эксперт от работодателя: ${pj.people.expert}.`, { after: 240 }),
-    pageBreak(),
-  ];
-
-  // ---------- содержание ----------
-  const TOC = [
-    ['s1', '1. Общая характеристика рабочей программы профессионального модуля', 0, '1. ОБЩАЯ ХАРАКТЕРИСТИКА РАБОЧЕЙ ПРОГРАММЫ'],
-    ['s2', '2. Структура и содержание профессионального модуля', 0, '2. СТРУКТУРА И СОДЕРЖАНИЕ ПРОФЕССИОНАЛЬНОГО МОДУЛЯ'],
-    ['s3', '3. Условия реализации профессионального модуля', 0, '3. УСЛОВИЯ РЕАЛИЗАЦИИ ПРОФЕССИОНАЛЬНОГО МОДУЛЯ'],
-    ['s4', '4. Контроль и оценка результатов освоения профессионального модуля', 0, '4. КОНТРОЛЬ И ОЦЕНКА РЕЗУЛЬТАТОВ ОСВОЕНИЯ'],
-    ['f0', 'Приложение 1. Фонд оценочных средств по профессиональному модулю', 0, 'ФОНД ОЦЕНОЧНЫХ СРЕДСТВ ПО ПРОФЕССИОНАЛЬНОМУ МОДУЛЮ'],
-    ['f1', '1. Паспорт фонда оценочных средств', 1, '1. ПАСПОРТ ФОНДА ОЦЕНОЧНЫХ СРЕДСТВ'],
-    ['f2', '2. Оценочные средства текущего контроля', 1, '2. ОЦЕНОЧНЫЕ СРЕДСТВА ТЕКУЩЕГО КОНТРОЛЯ'],
-    ['f3', '3. Оценочные средства промежуточной аттестации по МДК', 1, '3. ОЦЕНОЧНЫЕ СРЕДСТВА ПРОМЕЖУТОЧНОЙ АТТЕСТАЦИИ'],
-    ['f4', '4. Оценочные средства по учебной и производственной практике', 1, '4. ОЦЕНОЧНЫЕ СРЕДСТВА ПО УЧЕБНОЙ И ПРОИЗВОДСТВЕННОЙ'],
-    ['f5', '5. Оценочные средства экзамена по модулю', 1, '5. ОЦЕНОЧНЫЕ СРЕДСТВА ЭКЗАМЕНА ПО МОДУЛЮ'],
-    ['f6', '6. Ключи к тестовым заданиям', 1, '6. КЛЮЧИ К ТЕСТОВЫМ ЗАДАНИЯМ'],
-    ['f7', '7. Формы документов', 1, '7. ФОРМЫ ДОКУМЕНТОВ'],
-  ];
-  const tocLine = (text, page, level) => new Paragraph({
-    children: [run(text), new TextRun({ font: H.FONT, size: 24, children: [new Tab(), String(page || '')] })],
-    tabStops: [{ type: TabStopType.RIGHT, position: P_W - 10, leader: 'dot' }],
-    indent: { left: level ? mm(5) : 0, right: mm(10) }, spacing: { after: 80 },
-  });
-  const toc = [center('СОДЕРЖАНИЕ', { bold: true, after: 240 }), ...TOC.map(([k, t, l]) => tocLine(t, pages[k], l)), pageBreak()];
+  const pmQ = `${c.meta.pm} «${c.meta.pm_name}»`;
+  const spec = `${fgos.code} ${fgos.name}`;
+  const res = pop.results;
+  const crit = pop.criteria;
 
   // ---------- производные данные ----------
-  const m = moduleFromPlan(ctx.plan, pj.pm);
-  const activeSems = m.pm.sem.map((h, i) => (h > 0 ? i : -1)).filter(i => i >= 0);
-  const off = pj.course_offset || 0;
-  const firstSem = activeSems[0], lastSem = activeSems[activeSems.length - 1];
-  const courseOf = i => Math.floor(i / 2) + 1 + off;
-  const studyText = firstSem === lastSem ? semLabel(firstSem, off) : `${courseOf(firstSem) === courseOf(lastSem) ? courseOf(firstSem) + ' курсе' : courseOf(firstSem) + '–' + courseOf(lastSem) + ' курсах'} (${firstSem + 1}–${lastSem + 1} семестры учебного плана)`;
-  const elemCodes = {};
-  c.mdk.forEach(md => {
-    const pk = [], ok = [];
-    md.blocks.forEach(b => b.themes.forEach(th => { const x = parseCodes(th.codes); pk.push(...x.pk); ok.push(...x.ok); }));
-    elemCodes[md.code] = { pk: uniq(pk), ok: uniq(ok) };
-  });
-  const practiceCodes = arr => { const pk = []; arr.forEach(u => u.works.forEach(w => pk.push(...parseCodes(w.codes).pk))); return uniq(pk); };
-  const upPK = practiceCodes(c.up), ppPK = practiceCodes(c.pp);
-  const sumMdkT = c.mdk.reduce((a, x) => a + x.T, 0), sumMdkP = c.mdk.reduce((a, x) => a + x.P, 0), sumK = c.mdk.reduce((a, x) => a + (x.K || 0), 0);
+  const MB = c.mdk.map(m => ({ m, ...mdkBlocks(m) }));
+  const themeCodes = th => parseCodes(th.codes);
+  const mdkCodes = m => { const pk = [], ok = []; m.themes.forEach(th => { const x = themeCodes(th); pk.push(...x.pk); ok.push(...x.ok); }); return { pk: uniq(pk).sort(), ok: uniq(ok).sort() }; };
+  const workCodes = arr => uniq(arr.flatMap(u => u.works.flatMap(w => parseCodes(w.codes).pk))).sort();
   const upH = c.up.reduce((a, x) => a + x.hours, 0), ppH = c.pp.reduce((a, x) => a + x.hours, 0);
-  const total = sumMdkT + sumMdkP + sumK + upH + ppH;
-  const formName = f => FORM_NAMES[f] || f;
-  const formsList = [];
-  c.mdk.forEach(md => md.blocks.forEach(b => b.form && formsList.push(`${md.code} — ${formName(b.form)} (${b.label})`)));
-  c.up.forEach(u => u.form && formsList.push(`${u.code} — ${formName(u.form)} (${u.label})`));
-  c.pp.forEach(u => u.form && formsList.push(`${u.code} — ${formName(u.form)} (${u.label})`));
-  formsList.push(`${c.meta.pm} — экзамен по модулю (${c.meta.exam_label})`);
+  const sumT = c.mdk.reduce((a, x) => a + x.T, 0), sumP = c.mdk.reduce((a, x) => a + x.P, 0), sumK = c.mdk.reduce((a, x) => a + (x.K || 0), 0);
+  const total = sumT + sumP + sumK + upH + ppH;
+  const codesBlock = (pk, ok, lr) => [okStr(ok), pkStr(pk), lrStr(lr)].filter(Boolean);
+  const semsOf = (m, f) => m.sems.filter(s => s.form === f).map(s => s.label);
+  const mdkFormsText = m => {
+    const parts = m.sems.filter(s => s.form).map(s => `${formGen(s.form)} (${s.label})`);
+    return parts.length ? parts.join(' и ') : 'не предусмотрена';
+  };
+  const upForm = c.up.find(u => u.form);
+  const ppForm = c.pp.find(u => u.form);
+
+  // ---------- титульный лист ----------
+  const titlePage = [
+    center(org.ministry.toUpperCase(), { bold: true }),
+    center(`ГБПОУ ${org.name}`, { bold: true, after: 3000 }),
+    center('РАБОЧАЯ ПРОГРАММА ПРОФЕССИОНАЛЬНОГО МОДУЛЯ', { bold: true, size: 28, after: 240 }),
+    center(pmTitle, { bold: true, size: 28, after: 480 }),
+    center(`для студентов группы ${pj.group}`, { after: 120 }),
+    center('обучающихся по специальности', { after: 120 }),
+    center(spec, { bold: true, after: 5200 }),
+    center(`г. ${org.city}, ${pj.year} год`),
+    pageBreak(),
+  ];
+  const ppl = pj.people || {};
+  const back = [
+    p(`Составлена в соответствии с Федеральным государственным образовательным стандартом среднего профессионального образования (далее ФГОС СПО), утвержденным ${fgos.order_by} приказом от ${fgos.order_date} и зарегистрированным в Минюсте России ${fgos.minjust} по специальности ${spec}, а также на основе Методических указаний ${org.short} и примерной программы, а также в соответствии с требованиями технического описания компетенции в рамках конкурса профессионального мастерства Молодые профессионалы (WorldSkills Russia):`, { after: 120 }),
+    center(pj.worldskills || '', { bold: true, after: 600 }),
+    p(`Рассмотрено на заседании ПЦК ${pj.pcc || ''}`, { noIndent: true }),
+    p('Протокол № ___  от ____________ г.', { noIndent: true }),
+    p(`ППЦК __________ ${ppl.pcc_head || 'Ф.И.О.'}`, { noIndent: true, after: 360 }),
+    p('Рассмотрено на заседании', { noIndent: true }),
+    p(`Методического совета ${org.short}`, { noIndent: true }),
+    p('Протокол № _____  от _____________ г.', { noIndent: true }),
+    p(`Председатель МС ________ ${ppl.ms_head || 'Ф.И.О.'}`, { noIndent: true, after: 360 }),
+    p(`Составитель: ${ppl.developer || 'Ф.И.О., преподаватель ' + org.short}`, { noIndent: true, after: 240 }),
+    ...(ppl.reviewers || ['Ф.И.О., должность', 'Ф.И.О., должность']).map(r => p(`Рецензент: ${r}`, { noIndent: true, after: 120 })),
+    pageBreak(),
+  ];
 
   // ---------- раздел 1 ----------
-  const pr = c.program;
   const w2 = widths(P_W, [25, 0], 1);
-  const hasPS = pr.pk_ps && Object.keys(pr.pk_ps).length;
-  const wPK = hasPS ? widths(P_W, [25, 0, 35], 1) : w2;
-  const pkHead = hasPS ? ['Код', 'Наименование видов деятельности и профессиональных компетенций', 'Трудовые функции ПС'] : ['Код', 'Наименование видов деятельности и профессиональных компетенций'];
-  const pkTable = table(wPK, [hdr(pkHead, wPK),
-    new TableRow({ children: [cell(c.meta.vd, wPK[0], { bold: true }), cell(c.meta.pm_name, wPK[1], { bold: true }), ...(hasPS ? [cell('', wPK[2])] : [])] }),
-    ...PK.map(([k, n]) => new TableRow({ children: [cell(k, wPK[0]), cell(n, wPK[1]), ...(hasPS ? [cell(pr.pk_ps[k] || '', wPK[2])] : [])] }))]);
-  const w3 = widths(P_W, [35, 0], 1);
-  const wLR = widths(P_W, [25, 0, 55], 1);
-  // таблица 1.2: Код ОК, ПК | Уметь | Знать | Владеть навыками (макет ПОП)
+  const listCell = (items, w) => cell((items || []).map((t, i, a) => t.replace(/[;.]\s*$/, '') + (i === a.length - 1 ? '.' : ';')), w);
   const wR = widths(P_W, [20, 0, 0, 0], 1);
   { const rest = P_W - wR[0]; wR[1] = Math.floor(rest / 3); wR[2] = Math.floor(rest / 3); wR[3] = rest - wR[1] - wR[2]; }
-  const listCell = (items, w) => cell((items || []).map((t, i, a) => t.replace(/[;.]\s*$/, '') + (i === a.length - 1 ? '.' : ';')), w);
-  const okRes = fgos.ok_results || {};
-  const pkRes = pr.pk_results || {};
   const resultsTable = table(wR, [hdr(['Код ОК, ПК', 'Уметь', 'Знать', 'Владеть навыками'], wR),
-    ...OK_CODES.map(o => new TableRow({ children: [cell(o, wR[0]), listCell((okRes[o] || {}).um, wR[1]), listCell((okRes[o] || {}).zn, wR[2]), cell('', wR[3])] })),
-    ...pkCodes.map(k => new TableRow({ children: [cell(k, wR[0]), listCell((pkRes[k] || {}).um, wR[1]), listCell((pkRes[k] || {}).zn, wR[2]), listCell((pkRes[k] || {}).nav, wR[3])] }))]);
+    ...OK_CODES.map(o => new TableRow({ children: [cell(o, wR[0]), listCell((res.ok[o] || {}).um, wR[1]), listCell((res.ok[o] || {}).zn, wR[2]), listCell((res.ok[o] || {}).nav, wR[3])] })),
+    ...pkCodes.map(k => new TableRow({ children: [cell(k, wR[0]), listCell((res.pk[k] || {}).um, wR[1]), listCell((res.pk[k] || {}).zn, wR[2]), listCell((res.pk[k] || {}).nav, wR[3])] }))]);
+
+  // 1.3 распределение часов по семестрам
+  const lastSem = Math.max(...c.mdk.flatMap(m => m.sems.map(s => s.sem)), ...c.up.map(u => u.sem), ...c.pp.map(u => u.sem), c.meta.exam_sem);
+  const nS = Math.max(6, lastSem + 1);
+  const w13 = [mm(10), 0, ...Array(nS).fill(mm(nS > 6 ? 10 : 13)), mm(15)];
+  w13[1] = P_W - w13.reduce((a, b) => a + b, 0);
+  const semCells = (vals, o = {}) => Array.from({ length: nS }, (_, i) => cell(vals[i] === undefined || vals[i] === null ? '' : String(vals[i]), w13[2 + i], { align: C, ...o }));
+  const r13 = (num, label, vals, tot, o = {}) => new TableRow({ children: [cell(num, w13[0], { align: C, ...o }), cell(label, w13[1], o), ...semCells(vals, o), cell(tot === undefined ? '' : String(tot), w13[2 + nS], { align: C, ...o })] });
+  const rows13 = [
+    new TableRow({ tableHeader: true, children: [cell('№ п/п', w13[0], { bold: true, align: C, rowSpan: 2, vAlign: VerticalAlign.CENTER, shade: 'EDEDED' }), cell('Нагрузка обучающегося', w13[1], { bold: true, align: C, rowSpan: 2, vAlign: VerticalAlign.CENTER, shade: 'EDEDED' }), cell('Номер семестра', w13.slice(2, 2 + nS).reduce((a, b) => a + b, 0), { bold: true, align: C, colSpan: nS, shade: 'EDEDED' }), cell('Всего часов', w13[2 + nS], { bold: true, align: C, rowSpan: 2, vAlign: VerticalAlign.CENTER, shade: 'EDEDED' })] }),
+    new TableRow({ tableHeader: true, children: Array.from({ length: nS }, (_, i) => cell(String(i + 1), w13[2 + i], { bold: true, align: C, shade: 'EDEDED' })) }),
+  ];
+  const semTot = Array(nS).fill(0);
+  let rn = 0;
+  MB.forEach(({ m, blocks }) => {
+    const h = [], t = [], pr = [], f = [];
+    blocks.forEach(b => { h[b.sem] = b.hours; t[b.sem] = b.T; pr[b.sem] = b.P; if (b.form) f[b.sem] = formAbbr(b.form); semTot[b.sem] += b.hours; });
+    rows13.push(r13(`${++rn}.`, `${m.code} «${m.name}»`, h, m.T + m.P + (m.K || 0), { bold: true }),
+      r13('', 'Обязательной аудиторной учебной нагрузки', h, m.T + m.P + (m.K || 0)),
+      r13('', 'в том числе: теоретических занятий', t, m.T),
+      r13('', 'лабораторно-практических занятий', pr, m.P),
+      ...(m.K ? [r13('', 'курсовой проект (работа)', m.sems.map(s => s.K || ''), m.K)] : []),
+      r13('', 'Самостоятельная работа', [], '—'),
+      r13('', `Промежуточная аттестация в форме ${mdkFormsText(m)}`, f, ''));
+  });
+  const practRows = (arr, title, kind) => {
+    if (!arr.length) return;
+    const h = [], f = [];
+    arr.forEach(u => { h[u.sem] = u.hours; semTot[u.sem] += u.hours; if (u.form) f[u.sem] = formAbbr(u.form); });
+    rows13.push(r13(`${++rn}.`, `${title} ${arr[0].code}`, h, arr.reduce((a, x) => a + x.hours, 0), { bold: true }));
+    const fm = arr.find(u => u.form);
+    if (fm) rows13.push(r13('', `Промежуточная аттестация в форме ${formGen(fm.form)} (${fm.label})`, f, ''));
+    else rows13.push(r13('', kind === 'pp' ? 'Промежуточная аттестация не проводится; по окончании практики обучающийся оформляет отчёт по практике' : 'Промежуточная аттестация не проводится', arr.map(() => null).reduce((a, _, i) => { a[arr[i].sem] = kind === 'pp' ? 'отчёт' : ''; return a; }, []), ''));
+  };
+  practRows(c.up, 'Учебная практика', 'up');
+  practRows(c.pp, 'Производственная практика', 'pp');
+  rows13.push(r13(`${++rn}.`, `Экзамен по модулю ${c.meta.pm}`, Object.assign([], { [c.meta.exam_sem]: 'Эк' }), '', { bold: true }));
+  rows13.push(r13('', 'Итого', semTot.map(x => x || ''), total, { bold: true }));
+
+  const hoursLines = [
+    `Всего часов ${total}`,
+    ...c.mdk.map((m, i) => `${i ? 'на освоение' : 'Из них на освоение'} ${m.code} «${m.name}» — ${m.T + m.P + (m.K || 0)}`),
+    `на практики, в том числе учебную ${upH} и производственную ${ppH}`,
+  ];
+
   const sec1 = [
     h1('1. Общая характеристика рабочей программы профессионального модуля'),
     center(`«${pmTitle}»`, { bold: true, after: 200 }),
-    h2('1.1. Цель и место профессионального модуля в структуре образовательной программы'),
-    p(`Цель модуля: освоение вида деятельности «${c.meta.pm_name}» и соответствующих ему общих и профессиональных компетенций, а также личностных результатов.`),
-    p(`Профессиональный модуль включён в обязательную часть профессионального цикла образовательной программы по специальности ${fgos.code} ${fgos.name}. Модуль изучается на ${studyText}.` +
-      (pr.prerequisites.length ? ` Модуль опирается на ${pr.prerequisites.join(', ')}.` : '') +
-      (pr.next_modules.length ? ` Результаты освоения модуля используются при изучении: ${pr.next_modules.join(', ')}.` : '')),
-    p(pr.place_text),
-    p(`В результате освоения профессионального модуля обучающийся должен освоить вид деятельности «${c.meta.pm_name}» и соответствующие ему общие и профессиональные компетенции, а также достичь личностных результатов.`),
+    h2('1.1. Цель и планируемые результаты освоения профессионального модуля'),
+    p(`В результате изучения профессионального модуля студент должен освоить основной вид деятельности «${c.meta.pm_name}» и соответствующие ему общие компетенции и профессиональные компетенции, а также достичь личностных результатов:`),
     h3('1.1.1. Перечень общих компетенций'),
     table(w2, [hdr(['Код', 'Наименование общих компетенций'], w2), ...OK.map(([k, n]) => new TableRow({ children: [cell(k, w2[0]), cell(n, w2[1])] }))]),
     h3('1.1.2. Перечень профессиональных компетенций'),
-    pkTable,
-    h3('1.1.3. Личностные результаты'),
-    p(`Освоение модуля обеспечивает достижение личностных результатов (целевых ориентиров воспитания), установленных документом: ${vosp.title}. Соответствие общих компетенций и личностных результатов принято по документу «${vosp.source_table}».`, { after: 120 }),
-    table(widths(P_W, [25, 0], 1), [hdr(['ОК', 'Личностные результаты (целевые ориентиры воспитания)'], widths(P_W, [25, 0], 1)),
-      ...OK_CODES.map(o => new TableRow({ children: [cell(o, mm(25)), cell(lrStr(okLrMod[o] || []), P_W - mm(25))] })),
-      ...(LR_FREE.length ? [new TableRow({ children: [cell('Без привязки к ОК', mm(25)), cell(lrStr(LR_FREE) + ' — формируются в ходе учебных занятий, практики и воспитательной работы', P_W - mm(25))] })] : [])]),
-    p('Перечень личностных результатов, формируемых в модуле:', { before: 200, after: 120, keepNext: true }),
-    table(w2, [hdr(['Код', 'Личностные результаты реализации программы воспитания (дескрипторы)'], w2), ...LR_ALL.map(n => new TableRow({ children: [cell('ЛР ' + n, w2[0]), cell(LR[n], w2[1])] }))]),
-    h2('1.2. Планируемые результаты освоения профессионального модуля'),
-    p('Результаты освоения профессионального модуля соотносятся с планируемыми результатами освоения образовательной программы, представленными в матрице компетенций выпускника (п. 4.3 ПОП).'),
-    p('В результате освоения профессионального модуля обучающийся должен:', { after: 120, keepNext: true }),
+    table(w2, [hdr(['Код', 'Наименование видов деятельности и профессиональных компетенций'], w2),
+      new TableRow({ children: [cell(c.meta.vd, w2[0], { bold: true }), cell(c.meta.pm_name, w2[1], { bold: true })] }),
+      ...PK.map(([k, n]) => new TableRow({ children: [cell(k, w2[0]), cell(n, w2[1])] }))]),
+    h3('1.1.3. В результате освоения программы профессионального модуля студент должен:'),
+    p(pop.results_intro, { after: 120 }),
     resultsTable,
+    h3('1.1.4. В процессе изучения профессионального модуля обучающийся должен достигать следующих личностных результатов в соответствии с программой воспитания по специальности:'),
+    table(w2, [hdr(['Код ЛР из программы воспитания', 'Наименование личностных результатов'], w2), ...LR_ALL.map(n => new TableRow({ children: [cell('ЛР ' + n, w2[0]), cell(LR[n], w2[1])] }))]),
+    p(`Источник: ${vosp.title}.`, { size: 22, noIndent: true, before: 80 }),
+    h2('1.2. Количество часов, отводимых на освоение профессионального модуля'),
+    ...hoursLines.map(t => p(t, { noIndent: true })),
+    h2(`1.3. Распределение часов, отводимых на освоение профессионального модуля «${c.meta.pm_name}», по семестрам:`),
+    table(w13, rows13),
   ];
 
   // ---------- раздел 2 ----------
-  const wT = widths(L_W, [0, 40, 40], 0);
-  const trud = table(wT, [hdr(['Наименование составных частей модуля', 'Объём, ч', 'В т. ч. в форме практической подготовки, ч'], wT),
-    ...[['Учебные занятия', sumMdkT + sumMdkP, sumMdkP], ['Курсовая работа (проект)', sumK || '—', sumK || '—'], ['Самостоятельная работа', '—', '—'], ['Практика, в т. ч.:', upH + ppH, upH + ppH], ['учебная', upH, upH], ['производственная', ppH, ppH], ['Промежуточная аттестация', 'в период сессии', '—']]
-      .map(([a, b, x]) => new TableRow({ children: [cell(a, wT[0]), cell(String(b), wT[1], { align: C }), cell(String(x), wT[2], { align: C })] })),
-    new TableRow({ children: [cell('Всего', wT[0], { bold: true }), cell(String(total), wT[1], { bold: true, align: C }), cell(String(sumMdkP + sumK + upH + ppH), wT[2], { bold: true, align: C })] })]);
-  const wS = widths(L_W, [38, 0, 18, 22, 18, 22, 18, 18, 18, 20], 1);
-  const hc = (t, w, o = {}) => cell(t, w, { bold: true, align: C, vAlign: D.VerticalAlign.CENTER, shade: 'EDEDED', ...o });
-  const okAll = 'ОК 01–09';
+  const wS = widths(L_W, [45, 0, 18, 16, 24, 18, 18, 22, 22, 20], 1);
+  const hc = (t, w, o = {}) => cell(t, w, { bold: true, align: C, vAlign: VerticalAlign.CENTER, shade: 'EDEDED', ...o });
+  const sumW = (a, b) => wS.slice(a, b).reduce((x, y) => x + y, 0);
+  const allOk = OK_CODES;
   const structRows = [
-    ...c.mdk.map((md, i) => [[codesStr(elemCodes[md.code].pk, elemCodes[md.code].ok), lrStr(lrFromOk(elemCodes[md.code].ok))], `Раздел ${i + 1}. ${md.code} ${md.name}`, md.T + md.P + (md.K || 0), md.P + (md.K || 0), md.T + md.P + (md.K || 0), md.P, md.K || '—', '—', '', '']),
-    ...c.up.length ? [[[codesStr(upPK, []) + '; ' + okAll, lrStr(LR_MOD)], `Учебная практика ${c.up[0].code}`, upH, upH, '', '', '', '', upH, '']] : [],
-    ...c.pp.length ? [[[codesStr(ppPK, []) + '; ' + okAll, lrStr(LR_MOD)], `Производственная практика ${c.pp[0].code}`, ppH, ppH, '', '', '', '', '', ppH]] : [],
-    ['', 'Промежуточная аттестация', '—', '', '', '', '', '', '', ''],
+    ...c.mdk.map(m => { const x = mdkCodes(m); return [codesBlock(x.pk, x.ok, lrFromOk(x.ok)), `${m.section} (${m.code})`, m.T + m.P + (m.K || 0), m.T + m.P + (m.K || 0), m.P, m.K || '—', '—', '—', '—', '—']; }),
+    ...(c.up.length ? [[codesBlock(workCodes(c.up), allOk, lrFromOk(allOk)), `Учебная практика ${c.up[0].code}, часов`, upH, '—', '—', '—', upH, '—', '—', '—']] : []),
+    ...(c.pp.length ? [[codesBlock(workCodes(c.pp), allOk, lrFromOk(allOk)), `Производственная практика (по профилю специальности) ${c.pp[0].code}, часов`, ppH, '—', '—', '—', '—', ppH, '—', '—']] : []),
   ];
   const struct = table(wS, [
-    new TableRow({ tableHeader: true, children: [hc('Коды ПК, ОК, ЛР', wS[0], { rowSpan: 3 }), hc('Наименования разделов профессионального модуля', wS[1], { rowSpan: 3 }), hc('Всего, ч', wS[2], { rowSpan: 3 }), hc('В т. ч. в форме практ. подготовки', wS[3], { rowSpan: 3 }), hc('Объём профессионального модуля, ч', wS.slice(4).reduce((a, b) => a + b, 0), { colSpan: 6 })] }),
-    new TableRow({ tableHeader: true, children: [hc('Обучение по МДК', wS[4] + wS[5] + wS[6] + wS[7], { colSpan: 4 }), hc('Практики', wS[8] + wS[9], { colSpan: 2 })] }),
-    new TableRow({ tableHeader: true, children: [hc('Всего', wS[4]), hc('Лаб. и практ. занятий', wS[5]), hc('Курсовых работ', wS[6]), hc('Самост. работа', wS[7]), hc('Учебная', wS[8]), hc('Производств.', wS[9])] }),
+    new TableRow({ tableHeader: true, children: [hc('Коды профессиональных общих компетенций', wS[0], { rowSpan: 3 }), hc('Наименования разделов профессионального модуля', wS[1], { rowSpan: 3 }), hc('Суммарный объем нагрузки, час.', wS[2], { rowSpan: 3 }), hc('Объем профессионального модуля, час.', sumW(3, 9), { colSpan: 6 }), hc('Самостоятельная работа', wS[9], { rowSpan: 3 })] }),
+    new TableRow({ tableHeader: true, children: [hc('Обучение по МДК', sumW(3, 6), { colSpan: 3 }), hc('Практики', sumW(6, 8), { colSpan: 2 }), hc('Промежуточная аттестация', wS[8], { rowSpan: 2 })] }),
+    new TableRow({ tableHeader: true, children: [hc('Всего', wS[3]), hc('Лабораторных и практических занятий', wS[4]), hc('Курсовых работ (проектов)', wS[5]), hc('Учебная', wS[6]), hc('Производственная', wS[7])] }),
     new TableRow({ tableHeader: true, children: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'].map((t, i) => cell(t, wS[i], { align: C })) }),
-    ...structRows.map(r => new TableRow({ children: r.map((v, i) => cell(Array.isArray(v) ? v : String(v), wS[i], { align: i >= 2 ? C : AlignmentType.LEFT })) })),
-    new TableRow({ children: [cell('', wS[0]), cell('Всего', wS[1], { bold: true }), ...[total, sumMdkP + sumK + upH + ppH, sumMdkT + sumMdkP + sumK, sumMdkP, sumK || '—', '—', upH, ppH].map((v, i) => cell(String(v), wS[i + 2], { bold: true, align: C }))] }),
+    ...structRows.map(r => new TableRow({ children: r.map((v, i) => cell(Array.isArray(v) ? v : String(v), wS[i], { align: i >= 2 ? C : L })) })),
+    new TableRow({ children: [cell('', wS[0]), cell('Всего:', wS[1], { bold: true }), ...[total, sumT + sumP + sumK, sumP, sumK || '—', upH, ppH, '—', '—'].map((v, i) => cell(String(v), wS[i + 2], { bold: true, align: C }))] }),
   ]);
 
-  const wC = widths(L_W, [55, 0, 20, 38], 1);
+  const wC = widths(L_W, [55, 0, 20, 42], 1);
   const span2 = wC[0] + wC[1];
-  const part = (title, k, n) => (n > 1 ? `${title} (часть ${k})` : title);
-  const rows = [hdr(['Наименование разделов и тем профессионального модуля, МДК', 'Содержание учебного материала, лабораторные работы и практические занятия', 'Объём, ч', 'Коды ПК, ОК, ЛР'], wC),
+  const fullRow = (text, o = {}) => new TableRow({ children: [cell(text, L_W, { colSpan: 4, ...o })] });
+  const ktpHead = () => [hdr(['Наименование разделов профессионального модуля (ПМ), междисциплинарных курсов (МДК) и тем', 'Содержание учебного материала, лабораторные работы и практические занятия, самостоятельная работа обучающихся, курсовая работа (проект), учебная практика', 'Объем часов', 'Коды компетенции, формированию которых способствует элемент программы'], wC),
     new TableRow({ tableHeader: true, children: ['1', '2', '3', '4'].map((t, i) => cell(t, wC[i], { align: C })) })];
-  const shadeRow = (text, hours) => new TableRow({ children: [cell(text, span2, { bold: true, colSpan: 2, shade: 'F5F5F5' }), cell(String(hours), wC[2], { bold: true, align: C, shade: 'F5F5F5' }), cell('', wC[3], { shade: 'F5F5F5' })] });
-  const semRow = (text, hours) => new TableRow({ children: [cell(text, span2, { italics: true, bold: true, colSpan: 2 }), cell(String(hours), wC[2], { italics: true, bold: true, align: C }), cell('', wC[3])] });
-  const attRow = text => new TableRow({ children: [cell(text, span2, { colSpan: 2, italics: true }), cell('—', wC[2], { align: C }), cell('', wC[3])] });
-  c.mdk.forEach((md, mi) => {
-    rows.push(shadeRow(`Раздел ${mi + 1}. ${md.code} ${md.name}`, md.T + md.P + (md.K || 0)));
-    let n = 0, tn = 0, pw = 0;
-    md.blocks.forEach(b => {
-      rows.push(semRow(b.label, b.hours));
-      b.themes.forEach(x => {
-        tn += 1;
-        const T = x.theory.length * LESSON, P = x.practice.reduce((s, y) => s + y[1], 0);
-        const prRows = [];
-        x.practice.forEach(([title, h]) => { const k = h / LESSON; for (let i = 1; i <= k; i++) prRows.push(part(title, i, k)); });
-        const span = 1 + x.theory.length + prRows.length;
-        const lr = lrStr(lrFromOk(parseCodes(x.codes).ok));
+  const lineRow = (text, hours, o = {}) => new TableRow({ children: [cell(text, span2, { colSpan: 2, ...o }), cell(hours === undefined ? '' : String(hours), wC[2], { align: C, ...o }), cell(o.codes || '', wC[3])] });
+  const ktp = [];
+  MB.forEach(({ m, blocks }, mi) => {
+    ktp.push(h3(`2.2.${mi + 1}. Календарно-тематический план и содержание междисциплинарного курса ${m.code} «${m.name}»`));
+    const rows = ktpHead();
+    const mc = mdkCodes(m);
+    blocks.forEach((b, bi) => {
+      rows.push(fullRow(b.label, { bold: true, align: C, shade: 'F2F2F2' }));
+      rows.push(fullRow(`теор ${b.T} ч, п/р ${b.P} ч, с/р 0 ч${b.K ? `, курсовой проект ${b.K} ч` : ''}`, { italics: true }));
+      if (bi === 0) rows.push(new TableRow({ children: [cell(m.section, span2, { colSpan: 2, bold: true }), cell(String(m.T + m.P + (m.K || 0)), wC[2], { bold: true, align: C }), cell(codesBlock(mc.pk, mc.ok, lrFromOk(mc.ok)), wC[3])] }));
+      b.groups.forEach(g => {
+        const th = g.theme;
+        const x = themeCodes(th);
+        const span = 1 + g.lessons.length;
         rows.push(new TableRow({ children: [
-          cell([cp(`Тема ${mi + 1}.${tn}. ${x.name}`, { bold: true }), cp(`Всего: ${T + P} ч`, { italics: true })], wC[0], { rowSpan: span }),
-          cell([cp('Содержание учебного материала', { bold: true }), cp(x.summary)], wC[1]),
+          cell([cp(`${th.num} ${th.name}`, { bold: true })], wC[0], { rowSpan: span }),
+          cell([cp(g.cont ? 'Содержание учебного материала (продолжение темы):' : 'Содержание учебного материала (перечень дидактических единиц):', { bold: true }), ...th.content.map(t => cp(t))], wC[1]),
           cell('', wC[2]),
-          cell([x.codes, lr], wC[3], { rowSpan: span }),
+          cell(codesBlock(x.pk, x.ok, lrFromOk(x.ok)), wC[3], { rowSpan: span }),
         ] }));
-        x.theory.forEach(t => { rows.push(new TableRow({ children: [cell(`${++n}. ${t}`, wC[1]), cell(String(LESSON), wC[2], { align: C })] })); allLessons.push(t); });
-        prRows.forEach(t => rows.push(new TableRow({ children: [cell(`${++n}. Практическая работа № ${++pw}. ${t}`, wC[1]), cell(String(LESSON), wC[2], { align: C })] })));
+        g.lessons.forEach(l => rows.push(new TableRow({ children: [cell(`${l.num}. ${l.kind === 'T' ? l.title : practiceLabel(l)}`, wC[1]), cell(String(LESSON), wC[2], { align: C })] })));
       });
-      if (b.K && md.course_project) {
-        const cpj = md.course_project;
-        const stRows = [];
-        cpj.stages.forEach(([t, h]) => { const k = h / LESSON; for (let i = 1; i <= k; i++) stRows.push(part(t, i, k)); });
-        rows.push(new TableRow({ children: [
-          cell([cp('Курсовой проект (работа)', { bold: true }), cp(`Всего: ${cpj.hours} ч`, { italics: true })], wC[0], { rowSpan: 1 + stRows.length }),
-          cell([cp('Тематика курсовых проектов (работ)', { bold: true }), ...cpj.topics.map((t, i) => cp(`${i + 1}. ${t}`))], wC[1]),
-          cell(String(cpj.hours), wC[2], { align: C, bold: true }),
-          cell([codesStr(elemCodes[md.code].pk, elemCodes[md.code].ok)], wC[3], { rowSpan: 1 + stRows.length }),
-        ] }));
-        stRows.forEach(t => rows.push(new TableRow({ children: [cell(`${++n}. ${t}`, wC[1]), cell(String(LESSON), wC[2], { align: C })] })));
+      if (b.K && m.course_project) {
+        const cpj = m.course_project;
+        rows.push(lineRow([cp('Курсовой проект (работа). Тематика:', { bold: true }), ...cpj.topics.map((t, i) => cp(`${i + 1}. ${t}`))], b.K));
       }
-      if (b.form) rows.push(attRow(`Промежуточная аттестация: ${formName(b.form)}`));
+      if (bi === blocks.length - 1) rows.push(lineRow('Самостоятельная работа (по разделу, МДК): учебным планом не предусмотрена', '—'));
+      if (b.form) rows.push(lineRow(`Промежуточная аттестация в форме ${formGen(b.form)}`, '—', { italics: true }));
     });
+    rows.push(lineRow(`Всего по ${m.code}`, m.T + m.P + (m.K || 0), { bold: true }));
+    ktp.push(table(wC, rows));
   });
-  const practiceRows = (arr, kind) => {
+  const practiceKtp = (arr, kind, num) => {
     if (!arr.length) return;
-    const tot = arr.reduce((a, x) => a + x.hours, 0);
-    rows.push(shadeRow(kind === 'up' ? `Учебная практика ${arr[0].code}` : `Производственная практика ${arr[0].code}`, tot));
+    const title = kind === 'up' ? `Содержание учебной практики ${arr[0].code}` : `Содержание производственной практики ${arr[0].code}`;
+    ktp.push(h3(`2.2.${num}. ${title}`));
+    const rows = ktpHead();
     let n = 0, v = 0;
     arr.forEach(u => {
-      rows.push(semRow(u.label, u.hours));
+      rows.push(fullRow(u.label, { bold: true, align: C, shade: 'F2F2F2' }));
+      rows.push(fullRow(kind === 'up' ? `${u.hours} ч (${u.hours / LESSON} занятий по ${LESSON} ч)` : `${u.hours} ч (${u.days} дней по ${PP_DAY} ч)`, { italics: true }));
       u.works.forEach(w => {
         v += 1;
         const lines = [];
-        if (kind === 'up') w.tasks.forEach(([t, h]) => { const k = h / LESSON; for (let i = 1; i <= k; i++) lines.push([part(t, i, k), LESSON]); });
+        if (kind === 'up') w.tasks.forEach(([t, h]) => { const k = h / LESSON; for (let i = 1; i <= k; i++) lines.push([k > 1 ? `${t} (часть ${i})` : t, LESSON]); });
         else w.days.forEach(d => lines.push([d, PP_DAY]));
-        const codes = parseCodes(w.codes).pk;
-        lines.forEach(([t, h], i) => {
-          const ch = [];
-          if (i === 0) ch.push(cell([cp(`Вид работ ${v}. ${w.name}`, { bold: true }), cp(`Всего: ${lines.reduce((a, x) => a + x[1], 0)} ч`, { italics: true })], wC[0], { rowSpan: lines.length }));
-          ch.push(cell(`${++n}. ${t}`, wC[1]), cell(String(h), wC[2], { align: C }));
-          if (i === 0) ch.push(cell([(codes.length ? codesStr(codes, []) + '; ' : '') + okAll, lrStr(LR_MOD)], wC[3], { rowSpan: lines.length }));
-          rows.push(new TableRow({ children: ch }));
-        });
+        const pk = parseCodes(w.codes).pk;
+        rows.push(new TableRow({ children: [
+          cell([cp(`Вид работ ${v}. ${cap(w.name)}`, { bold: true })], wC[0], { rowSpan: 1 + lines.length }),
+          cell([cp('Содержание работ:', { bold: true })], wC[1]), cell('', wC[2]),
+          cell(codesBlock(pk, allOk, lrFromOk(allOk)), wC[3], { rowSpan: 1 + lines.length }),
+        ] }));
+        lines.forEach(([t, h]) => rows.push(new TableRow({ children: [cell(`${++n}. ${t}`, wC[1]), cell(String(h), wC[2], { align: C })] })));
       });
-      if (u.form) rows.push(attRow(`Промежуточная аттестация: ${formName(u.form)}`));
+      if (u.form) rows.push(lineRow(`Промежуточная аттестация в форме ${formGen(u.form)}`, '—', { italics: true }));
+      else if (kind === 'pp') rows.push(lineRow('По окончании практики обучающийся оформляет и сдаёт отчёт по практике', '—', { italics: true }));
     });
+    rows.push(lineRow(`Всего по ${arr[0].code}`, arr.reduce((a, x) => a + x.hours, 0), { bold: true }));
+    ktp.push(table(wC, rows));
   };
-  practiceRows(c.up, 'up');
-  practiceRows(c.pp, 'pp');
-  rows.push(new TableRow({ children: [cell(`Экзамен по модулю (${c.meta.exam_label})`, span2, { colSpan: 2, bold: true }), cell('—', wC[2], { align: C }), cell([`${pkCodes[0]}–${pkCodes[pkCodes.length - 1].replace('ПК ', '')}; ${okAll}`, lrStr(LR_MOD)], wC[3])] }));
-  rows.push(new TableRow({ children: [cell('Всего', span2, { colSpan: 2, bold: true }), cell(String(total), wC[2], { bold: true, align: C }), cell('', wC[3])] }));
+  practiceKtp(c.up, 'up', c.mdk.length + 1);
+  practiceKtp(c.pp, 'pp', c.mdk.length + 2);
   const sec2 = [
-    h1('2. Структура и содержание профессионального модуля'),
+    h1('2. Структура и содержание программы профессионального модуля'),
     h2('2.1. Структура профессионального модуля'), struct,
     h2('2.2. Содержание профессионального модуля'),
-    table(wC, rows),
+    ...ktp,
   ];
 
   // ---------- раздел 3 ----------
-  const cnd = pr.conditions;
+  const cnd = c.program.conditions;
+  const eq = cnd.equipment || {};
+  const semi = arr => arr.map((e, i, a) => e.replace(/[;.]\s*$/, '') + (i === a.length - 1 ? '.' : ';'));
+  const wT6 = widths(P_W, [50, 0], 1);
+  const digital = pj.digital_tools || [
+    ['Power Point', 'Подготовка к практическим занятиям по МДК. Для проведения занятий используются презентации'],
+    ['Видеофильмы', 'Иллюстративные материалы при изучении тем — на платформе https://rutube.ru/'],
+    ['Электронная почта', 'Сетевой ресурс, используемый для коммуникации с обучающимися. Кроме того, применяется для осуществления контроля учебного процесса (переписка: ответы на текущие вопросы, проверка отчётов по практическим работам)'],
+    ['Сферум', 'Консультирование обучающихся при подготовке к экзаменам по МДК и экзамену по модулю'],
+    ['Поисковый Яндекс/Google', 'Организация работы обучающихся при подготовке к занятиям, обеспечивая им доступ к информационным веб-ресурсам по изучаемым темам и документации производителей сетевого оборудования'],
+    ['Файлообменник (Яндекс-диск)', 'Используется для обмена файлами разных форматов (текстами, презентациями, файлами конфигураций и захвата трафика) между преподавателем и обучающимися (как резервный канал связи при возникновении проблем на платформе системы дистанционного обучения (СДО) Moodle)'],
+    ['Эмуляторы сетей (Cisco Packet Tracer, GNS3, EVE-NG)', 'Моделирование сетей и выполнение практических работ при отсутствии физического оборудования; подготовка к экзамену по модулю'],
+    ['Мобильное приложение', 'Используется мессенджер, который позволяет поддерживать коммуникацию с обучающимися как на занятиях, так и вне их (решать возникающие проблемы, в основном организационного характера)'],
+    ['Социальная сеть', '«ВКонтакте» для коммуникации с обучающимися'],
+    ['Технологии электронной идентификации личности', 'Используется в процессе проведения экзамена в онлайн-режиме'],
+    ['Интернет вещей', 'Используются электронная доска для презентаций; мобильные телефоны, интернет-доступ в систему СДО Moodle (https://local.spet.pro)'],
+  ];
   const sec3 = [
-    h1('3. Условия реализации профессионального модуля'),
-    h2('3.1. Материально-техническое обеспечение'),
-    p('Для реализации программы профессионального модуля предусмотрены следующие специальные помещения.'),
-    ...cnd.rooms.flatMap(r => [p(`${r.name} — для ${r.purpose}:`, { keepNext: true }), ...bullets(r.equipment.map((e, i, a) => e + (i === a.length - 1 ? '.' : ';')))]),
-    p('Помещение для самостоятельной работы оснащается компьютерами с доступом в сеть Интернет и в электронную информационно-образовательную среду организации.'),
-    ...(cnd.software.length ? [p('Программное обеспечение:', { keepNext: true }), ...bullets(cnd.software.map((e, i, a) => e + (i === a.length - 1 ? '.' : ';')))] : []),
-    h2('3.2. Учебно-методическое обеспечение'),
-    h3('3.2.1. Основные печатные и электронные издания'), ...olist(cnd.literature_main),
-    h3('3.2.2. Дополнительные источники'), ...olist(cnd.literature_add),
-    h2('3.3. Кадровое обеспечение'),
-    p(`Реализация модуля обеспечивается педагогическими работниками образовательной организации, а также лицами, привлекаемыми на иных условиях, имеющими опыт деятельности не менее 3 лет в организациях области профессиональной деятельности ${fgos.professional_area}. Педагогические работники получают дополнительное профессиональное образование по программам повышения квалификации не реже 1 раза в 3 года, в том числе в форме стажировки в профильных организациях.`),
-    h2('3.4. Организация практики'),
-    p('Учебная практика проводится в лабораториях и мастерских образовательной организации. Производственная практика проводится в профильных организациях на основании договоров о практической подготовке обучающихся. Руководство практикой осуществляют руководитель практики от образовательной организации и руководитель от профильной организации.'),
+    h1('3. Условия реализации программы профессионального модуля'),
+    h2('3.1. Для реализации программы профессионального модуля должны быть предусмотрены следующие специальные помещения:'),
+    ...bullets(semi(pop.rooms)),
+    p('Помещение кабинета должно соответствовать требованиям санитарных правил (СП 2.4.3648-20 "Санитарно-эпидемиологические требования к организациям воспитания и обучения, отдыха и оздоровления детей и молодежи"): оснащено типовым оборудованием, в том числе специализированной учебной мебелью и средствами обучения, необходимыми для выполнения требований к уровню подготовки обучающихся.', { before: 120 }),
+    p('Оборудование учебного кабинета:', { keepNext: true }),
+    ...bullets(semi(eq.cabinet || [])),
+    p(`${pop.rooms.filter(r => /Лаборатор|Мастерск/.test(r)).map(r => r.replace(/,?\s*оснащенн.*$/, '')).join(' и ')}, оснащённые необходимым для реализации программы профессионального модуля оборудованием:`, { keepNext: true, before: 120 }),
+    ...bullets(semi([...(eq.lab || []), ...(eq.workshop || [])])),
+    p('Технические средства обучения:', { keepNext: true, before: 120 }),
+    ...bullets(semi(['персональный компьютер с лицензионным программным обеспечением (операционная система, текстовый процессор, программа презентаций, браузер с доступом в Интернет)', 'проектор с экраном', ...(cnd.software || [])])),
+    p('Залы:', { keepNext: true, before: 120 }),
+    ...bullets(['библиотека, читальный зал с выходом в сеть Интернет.']),
+    p(`Цифровые инструменты для достижения результатов обучения по ${c.meta.pm} «${c.meta.pm_name}»`, { before: 200, bold: true, noIndent: true, align: C }),
+    p('Таблица 6', { noIndent: true, align: AlignmentType.RIGHT, keepNext: true }),
+    simpleTable(wT6, ['Цифровые инструменты', 'Применение цифровых инструментов для достижения результатов профессионального модуля'], digital),
+    h2('3.2. Информационное обеспечение реализации программы'),
+    p('Информационное обеспечение реализации программы профессионального модуля представляет собой совокупность информационного обеспечения реализации программ междисциплинарных курсов, учебной и производственной практики, которые составляют содержательную часть программы профессионального модуля (п. 2.2 настоящей программы).'),
+    p('Основные источники:', { bold: true, keepNext: true, before: 120 }),
+    ...olist(pop.literature_main),
+    p('Дополнительные источники:', { bold: true, keepNext: true, before: 120 }),
+    ...olist(pop.literature_add),
+    h2('3.3. Кадровое обеспечение образовательного процесса'),
+    p('Требования к квалификации педагогических кадров, обеспечивающих обучение по профессиональному модулю: наличие высшего / среднего профессионального образования, соответствующего профилю преподаваемого профессионального модуля.'),
+    p(`Реализация образовательной программы осуществляется педагогическими работниками образовательной организации, а также лицами, привлекаемыми к реализации образовательной программы на условиях гражданско-правового договора, в том числе из числа руководителей и работников организаций, направление деятельности которых соответствует области профессиональной деятельности ${fgos.professional_area}, указанной в ФГОС СПО (имеющих стаж работы в данной профессиональной области не менее 3 лет).`),
+    p('Квалификация педагогических работников образовательной организации должна отвечать квалификационным требованиям, указанным в квалификационных справочниках, и (или) профессиональных стандартах (при наличии).'),
+    p(`Педагогические работники, привлекаемые к реализации образовательной программы, должны получать дополнительное профессиональное образование по программам повышения квалификации, в том числе в форме стажировки в организациях, направление деятельности которых соответствует области профессиональной деятельности, указанной в ФГОС СПО по специальности ${spec}, не реже 1 раза в 3 года с учетом расширения спектра профессиональных компетенций.`),
+    p('Педагогические работники, участвующие в реализации адаптированной образовательной программы, должны быть ознакомлены с психофизическими особенностями обучающихся инвалидов и обучающихся с ограниченными возможностями здоровья и учитывать их при организации образовательного процесса.'),
   ];
 
   // ---------- раздел 4 ----------
-  const me = c.fos.module_exam;
-  const pkCrit = pr.pk_criteria, okCrit = pr.ok_criteria;
-  const w4 = widths(P_W, [60, 0, 45], 1);
-  const evalTable = table(w4, [hdr(['Код и наименование профессиональных и общих компетенций', 'Критерии оценки', 'Методы оценки'], w4),
-    ...PK.map(([k, n]) => new TableRow({ children: [cell(`${k}. ${n}`, w4[0]), cell(pkCrit[k][0], w4[1]), cell(pkCrit[k][1], w4[2])] })),
-    ...OK.map(([k, n]) => new TableRow({ children: [cell(`${k}. ${n}`, w4[0]), cell(okCrit[k][0], w4[1]), cell(okCrit[k][1], w4[2])] }))]);
-  const w6 = widths(P_W, [40, 0, 50], 1);
-  const lrEval = table(w6, [hdr(['Коды ЛР', 'Показатели достижения', 'Формы и методы контроля'], w6),
-    ...OK_CODES.map(o => new TableRow({ children: [cell(lrStr(okLrMod[o] || []) + ` (${o})`, w6[0]), cell(okCrit[o][0], w6[1]), cell(okCrit[o][1] + '; характеристика руководителя практики', w6[2])] }))]);
-  const pkMax = {};
-  me.checklist.forEach(([k, , pt]) => { pkMax[k] = (pkMax[k] || 0) + Number(pt); });
-  const partsText = me.parts.map(x => `${x.name} (${x.pk.join(', ')}${x.minutes ? `; ${x.minutes} мин` : ''})`).join('; ');
+  const worksOf = (m, pk) => m.themes.filter(th => themeCodes(th).pk.includes(pk));
+  const w4 = widths(P_W, [38, 0, 42, 45], 1);
+  const groupRow = t => new TableRow({ children: [cell(t, P_W, { colSpan: 4, bold: true, shade: 'F2F2F2' })] });
+  const scale = ['«5» — действие выполнено полностью и самостоятельно, результат соответствует заданию', '«4» — выполнено полностью, допущены 1–2 несущественные ошибки, исправленные самостоятельно', '«3» — выполнено не менее чем на 60 %, основной результат достигнут с помощью преподавателя', '«2» — выполнено менее чем на 60 % или результат не достигнут'];
+  const pkMethodsPop = (crit['ПК 1.1'] || {}).methods || [];
+  const popMethods = pkMethodsPop.filter(x => !/курсов/i.test(x) || c.mdk.some(m => m.K));
+  const evalRows = [hdr(['Код и наименование ПК, ОК', 'Оцениваемые знания и умения, действия', 'Методы оценки', 'Критерии оценки'], w4)];
+  MB.forEach(({ m }) => {
+    evalRows.push(groupRow(`${m.section} (${m.code} «${m.name}»)`));
+    const formsTxt = m.sems.filter(s => s.form).map(s => `${formNom(s.form)} (${s.label})`).join('; ');
+    mdkCodes(m).pk.forEach(k => {
+      const ths = worksOf(m, k);
+      const wn = ths.flatMap(th => (th.works || []).map(w => w.n));
+      evalRows.push(new TableRow({ children: [
+        cell(`${k}. ${PK.find(x => x[0] === k)[1]}`, w4[0]),
+        cell([`Знания, умения и навыки по ${k} (п. 1.1.3), формируемые в темах ${ths.map(th => th.num.replace(/^Тема\s*/, '').replace(/\.$/, '')).join(', ')}.`, ...(wn.length ? [`Действия: выполнение практических работ № ${ranges(wn)}.`] : [])], w4[1]),
+        cell([`Текущий контроль: устный опрос, тестирование, экспертное наблюдение и оценка на практических занятиях, защита отчётов по практическим работам${wn.length ? ` № ${ranges(wn)}` : ''}.`, `Промежуточная аттестация: ${formsTxt || 'не предусмотрена'}.`, `Итоговый контроль: экзамен по модулю (${c.meta.exam_label}).`], w4[2]),
+        cell([...((crit[k] || {}).criteria || []).map(x => '– ' + x), 'Оценка — по шкале таблицы 4.1.2.'], w4[3]),
+      ] }));
+    });
+  });
+  const practicePk = uniq([...workCodes(c.up), ...workCodes(c.pp)]).sort();
+  if (practicePk.length) {
+    evalRows.push(groupRow(`Учебная практика ${c.up.length ? c.up[0].code : ''} и производственная практика ${c.pp.length ? c.pp[0].code : ''}`));
+    practicePk.forEach(k => {
+      const upW = c.up.flatMap(u => u.works).map((w, i) => [w, i + 1]).filter(([w]) => parseCodes(w.codes).pk.includes(k)).map(x => x[1]);
+      const ppW = c.pp.flatMap(u => u.works).map((w, i) => [w, i + 1]).filter(([w]) => parseCodes(w.codes).pk.includes(k)).map(x => x[1]);
+      evalRows.push(new TableRow({ children: [
+        cell(`${k}. ${PK.find(x => x[0] === k)[1]}`, w4[0]),
+        cell([`Практический опыт (навыки) по ${k} (п. 1.1.3).`, ...(upW.length ? [`УП: виды работ № ${ranges(upW)}.`] : []), ...(ppW.length ? [`ПП: виды работ № ${ranges(ppW)}.`] : [])], w4[1]),
+        cell([...(upW.length ? [`Учебная практика: наблюдение за выполнением работ, проверка результатов, аттестационный лист; ${upForm ? formNom(upForm.form) + ` (${upForm.label})` : 'отчёт по практике'}.`] : []), ...(ppW.length ? [`Производственная практика: аттестационный лист и характеристика руководителя от профильной организации; отчёт по практике${ppForm ? `; ${formNom(ppForm.form)}` : ''}.`] : []), `Итоговый контроль: экзамен по модулю (${c.meta.exam_label}).`], w4[2]),
+        cell([...((crit[k] || {}).criteria || []).map(x => '– ' + x), 'Оценка — по шкале таблицы 4.1.2.'], w4[3]),
+      ] }));
+    });
+  }
+  evalRows.push(groupRow('Общие компетенции (все разделы модуля, учебная и производственная практика)'));
+  OK.forEach(([k, n]) => evalRows.push(new TableRow({ children: [
+    cell(`${k}. ${n}`, w4[0]),
+    cell(`Знания и умения по ${k} (п. 1.1.3).`, w4[1]),
+    cell([...((crit[k] || {}).methods || [])].map(endDot), w4[2]),
+    cell(((crit[k] || {}).criteria || []).map(x => '– ' + x), w4[3]),
+  ] })));
+
+  const attLines = [
+    ...c.mdk.map(m => `Промежуточная аттестация по ${m.code} «${m.name}» осуществляется в форме ${mdkFormsText(m)}.`),
+    ...c.up.length ? [upForm ? `Промежуточная аттестация по учебной практике ${c.up[0].code} осуществляется в форме ${formGen(upForm.form)} (${upForm.label}) по результатам выполнения видов работ и отчёта по практике.` : `Промежуточная аттестация по учебной практике ${c.up[0].code} не проводится.`] : [],
+    ...c.pp.length ? [ppForm ? `Промежуточная аттестация по производственной практике ${c.pp[0].code} осуществляется в форме ${formGen(ppForm.form)} (${ppForm.label}).` : `Промежуточная аттестация по производственной практике ${c.pp[0].code} не проводится; по окончании практики обучающийся оформляет и сдаёт отчёт по практике.`] : [],
+    `Итоговой формой контроля по профессиональному модулю является экзамен по модулю (${c.meta.exam_label}). К экзамену допускаются обучающиеся, освоившие ${c.mdk.map(m => m.code).join(', ')}${c.up.length ? ', ' + c.up[0].code : ''}${c.pp.length ? ' и ' + c.pp[0].code : ''}.`,
+  ];
+  const lrMeth = c.program.lr_methods || {};
+  const w42 = widths(P_W, [22, 0, 70], 1);
+  const lrRows = LR_ALL.map(n => {
+    const oks = OK_CODES.filter(o => (okLr[o] || []).includes(n));
+    const meth = oks.length ? oks.map(o => `${o}: ${lrMeth[o] || ''}`) : [lrMeth.none || ''];
+    return new TableRow({ children: [cell('ЛР ' + n, w42[0]), cell(LR[n], w42[1]), cell(meth, w42[2])] });
+  });
   const sec4 = [
-    h1('4. Контроль и оценка результатов освоения профессионального модуля'),
-    p(`Текущий контроль осуществляется преподавателем в форме защиты практических работ, тестирования и экспертного наблюдения за выполнением работ. Промежуточная аттестация проводится в формах, установленных учебным планом. Итоговой формой контроля по модулю является экзамен по модулю, к которому допускаются обучающиеся, освоившие все МДК и практики модуля.`, { after: 120 }),
-    evalTable,
-    caption('Оценка личностных результатов', { before: 240 }),
-    lrEval,
-    p(`Экзамен по модулю состоит из следующих частей: ${partsText}. Оценивание ведётся по 100-балльному оценочному листу; вид деятельности признаётся освоенным при наборе не менее 60 баллов и не менее 50 % баллов по каждой ПК. По итогам экзамена принимается решение «вид деятельности освоен / не освоен» и выставляется оценка по пятибалльной шкале.`, { before: 200, after: 120 }),
-    simpleTable(widths(P_W, [55, 0], 1), ['Оценка', 'Условие'], [['5 «отлично»', '90–100 баллов'], ['4 «хорошо»', '75–89 баллов'], ['3 «удовлетворительно»', '60–74 балла'], ['2 «неудовлетворительно»', 'менее 60 баллов или менее 50 % баллов по одной из ПК']]),
-    p(`Контрольно-оценочные материалы приведены в приложении 1 «Фонд оценочных средств по профессиональному модулю ${c.meta.pm}».`, { before: 200 }),
+    h1('4. Контроль и оценка результатов освоения программы профессионального модуля'),
+    h2('4.1. Контроль и оценка результатов освоения программы профессионального модуля включает текущий контроль успеваемости и промежуточную аттестацию.'),
+    p('Текущий контроль проводится в форме устных опросов по темам, тестирования, выполнения и защиты практических работ. Самостоятельная внеаудиторная работа учебным планом не предусмотрена.'),
+    p('В основе текущего контроля используется пятибалльная шкала оценки («5» отлично, «4» хорошо, «3» удовлетворительно, «2» неудовлетворительно).'),
+    p('Формы и методы текущего контроля по профессиональному модулю доводятся до сведения обучающихся в начале изучения модуля.'),
+    p('По рабочей программе создан фонд оценочных средств (ФОС), который включает в себя педагогические контрольно-оценочные средства, предназначенные для определения соответствия (или несоответствия) персональных образовательных достижений основным показателям результатов подготовки профессионального модуля (раздел 5 настоящей программы: по каждому МДК с разбивкой по семестрам, по учебной и производственной практике, по экзамену по модулю).'),
+    ...attLines.map(t => p(t)),
+    p('Таблица 4.1.1', { noIndent: true, align: AlignmentType.RIGHT, keepNext: true, before: 120 }),
+    table(w4, evalRows),
+    p('Таблица 4.1.2. Шкала оценки освоения профессиональных компетенций', { noIndent: true, align: AlignmentType.RIGHT, keepNext: true, before: 200 }),
+    simpleTable(widths(P_W, [45, 0], 1), ['Оценка', 'Критерий'], scale.map(x => [x.slice(0, 3).replace(/[«»]/g, '') + ' ' + ({'«5»':'«отлично»','«4»':'«хорошо»','«3»':'«удовлетворительно»','«2»':'«неудовлетворительно»'})[x.slice(0, 3)], cap(x.slice(6))])),
+    h2('4.2. Контроль формирования личностных результатов в соответствии с программой воспитания'),
+    table(w42, [hdr(['Код ЛР', 'Личностные результаты реализации программы воспитания', 'Методы и формы обучения, способствующие достижению обучающимися ЛР'], w42), ...lrRows]),
   ];
 
-  // ---------- приложение 1: ФОС ----------
+  // ---------- раздел 5: ФОС по элементам модуля (МДК по семестрам, практики, экзамен по модулю) ----------
   const fos = c.fos;
-  const f1 = [
-    p('Приложение 1', { bold: true, noIndent: true, align: AlignmentType.RIGHT, after: 240 }),
-    h1(`Фонд оценочных средств по профессиональному модулю ${c.meta.pm} «${c.meta.pm_name}»`),
-    p(`Фонд оценочных средств является неотъемлемой частью рабочей программы профессионального модуля и разработан на основе ФГОС СПО по специальности ${fgos.code}, рабочей программы модуля, документа «${vosp.title}» и локальных актов ${org.short} о текущем контроле успеваемости и промежуточной аттестации обучающихся.`, { after: 240 }),
-    h1('1. Паспорт фонда оценочных средств'),
-    h2('1.1. Назначение фонда оценочных средств'),
-    p(`Фонд оценочных средств (ФОС) предназначен для проверки результатов освоения профессионального модуля ${pmTitle} по специальности ${fgos.code} ${fgos.name}. ФОС включает материалы для текущего контроля, промежуточной аттестации по междисциплинарным курсам и практикам и экзамена по модулю.`),
-    p(`Итогом освоения модуля является готовность обучающегося к выполнению вида деятельности «${c.meta.pm_name}». По результатам экзамена по модулю выносится решение «вид деятельности освоен / не освоен» и выставляется оценка по пятибалльной шкале.`),
-    h2('1.2. Результаты освоения модуля, подлежащие проверке'),
-    h3('1.2.1. Профессиональные компетенции'),
-    table(widths(P_W, [60, 0], 1), [hdr(['Код и наименование ПК', 'Основные показатели оценки результата'], widths(P_W, [60, 0], 1)), ...PK.map(([k, n]) => new TableRow({ children: [cell(`${k}. ${n}`, mm(60)), cell(pkCrit[k][0], P_W - mm(60))] }))]),
-    h3('1.2.2. Общие компетенции'),
-    table(widths(P_W, [60, 0], 1), [hdr(['Код и наименование ОК', 'Основные показатели оценки результата'], widths(P_W, [60, 0], 1)), ...OK.map(([k, n]) => new TableRow({ children: [cell(`${k}. ${n}`, mm(60)), cell(okCrit[k][0], P_W - mm(60))] }))]),
-    h3('1.2.3. Личностные результаты'),
-    p('Личностные результаты не оцениваются отметкой. Их достижение фиксируется в характеристике руководителя практики и в оценочном листе экзамена по модулю отметкой «проявлено / проявлено частично / не проявлено». Перечень ЛР приведён в п. 1.1.3 рабочей программы.'),
-    h2('1.3. Формы контроля и оценивания элементов модуля'),
-  ];
-  const formRows = [
-    ...c.mdk.map(md => [`${md.code} ${md.name}`, md.blocks.map(b => `${b.label} — ${b.form ? formName(b.form) : 'текущий контроль'}`).join('; '), 'Тестирование, защита практических работ' + (md.blocks.some(b => b.form) ? ', промежуточная аттестация по ФОС' : '')]),
-    ...c.up.map(u => [`${u.code} Учебная практика`, `${u.label} — ${u.form ? formName(u.form) : 'текущий контроль'}`, 'Наблюдение, проверка выполненных работ, отчёт, аттестационный лист']),
-    ...c.pp.map(u => [`${u.code} Производственная практика`, `${u.label} — ${u.form ? formName(u.form) : 'текущий контроль'}`, 'Дневник, отчёт, аттестационный лист, характеристика']),
-    [`${c.meta.pm} в целом`, `${c.meta.exam_label} — экзамен по модулю`, me.parts.map(x => x.name).join(', ')],
-  ];
-  f1.push(simpleTable(widths(P_W, [55, 50, 0], 2), ['Элемент модуля', 'Семестр и форма аттестации', 'Методы контроля'], formRows));
-  // матрица
-  const wm = [mm(40), ...Array(pkCodes.length).fill(Math.floor((P_W - mm(40)) / pkCodes.length))];
-  wm[1] += P_W - wm.reduce((a, b) => a + b, 0);
-  const matrixRows = [
-    ...c.mdk.map(md => {
-      const f = examForms(md);
-      return [md.code, ...pkCodes.map(k => (elemCodes[md.code].pk.includes(k) ? ['Т', 'ПР', ...(f['Э'] || f['ДЗ'] || f['З'] ? ['Э'] : []), ...(f['ДР'] || f['КР'] ? ['КР'] : [])].join(', ') : ''))];
-    }),
-    ...(c.up.length ? [[c.up[0].code, ...pkCodes.map(k => (upPK.includes(k) ? 'ВР' : ''))]] : []),
-    ...(c.pp.length ? [[c.pp[0].code, ...pkCodes.map(k => (ppPK.includes(k) ? 'ВР' : ''))]] : []),
-    ['Экзамен по модулю', ...pkCodes.map(k => me.parts.filter(x => x.pk.includes(k)).map(x => x.abbr || 'ЭМ').join(', '))],
-  ];
-  f1.push(h2('1.4. Матрица оценочных средств'),
-    table(wm, [hdr(['Элемент модуля', ...pkCodes], wm), ...matrixRows.map(r => new TableRow({ children: r.map((v, i) => cell(v, wm[i], { align: i ? C : AlignmentType.LEFT })) }))]),
-    p(`Т — тестирование; ПР — практическая работа; КР — контрольная работа; Э — экзамен (зачёт) по МДК; ВР — виды работ практики; ${me.parts.map(x => `${x.abbr || 'ЭМ'} — ${x.name}`).join('; ')}.`, { size: 22, before: 80, noIndent: true }),
-    h2('1.5. Шкала оценивания'),
-    simpleTable(widths(P_W, [60, 0], 1), ['Доля верно выполненных заданий (баллов), %', 'Оценка'], [['90–100', '5 «отлично»'], ['75–89', '4 «хорошо»'], ['60–74', '3 «удовлетворительно»'], ['менее 60', '2 «неудовлетворительно»']], { center: [0, 1] }));
-
-  // 2. текущий контроль
-  const testBlock = T => T.flatMap((q, i) => [p(`${i + 1}. ${q.q}`, { noIndent: true, before: 80, keepNext: true }), p(q.options.map((o, j) => `${LETTERS[j]}) ${o}`).join('    '), { noIndent: true, indent: { left: mm(6) } })]);
-  const prCrit = simpleTable(widths(P_W, [40, 0], 1), ['Оценка', 'Критерий'], [
+  const me = fos.module_exam;
+  const crit5 = rows => simpleTable(widths(P_W, [45, 0], 1), ['Оценка', 'Критерий'], rows);
+  const prCrit = crit5([
     ['5 «отлично»', 'Работа выполнена полностью, результат соответствует заданию, отчёт оформлен, на контрольные вопросы даны полные ответы'],
     ['4 «хорошо»', 'Работа выполнена полностью, допущены 1–2 несущественные ошибки, исправленные после замечания'],
     ['3 «удовлетворительно»', 'Работа выполнена не менее чем на 60 %, основной результат достигнут, ответы на вопросы неполные'],
-    ['2 «неудовлетворительно»', 'Работа выполнена менее чем на 60 % или результат не достигнут'],
-  ]);
-  const f2 = [h1('2. Оценочные средства текущего контроля'),
-    p('Текущий контроль проводится в форме тестирования по разделам МДК и защиты практических работ. Тест выполняется в электронной среде или на бланке, время — 1 минута на вопрос. Каждое задание имеет один правильный ответ и оценивается в 1 балл. Отметка выставляется по шкале п. 1.5. Ключи к тестам приведены в разделе 6.')];
-  c.mdk.forEach((md, i) => {
-    f2.push(h2(`2.${i + 1}. Тестовые задания по ${md.code} «${md.name}»`),
-      p(`Проверяемые результаты: ${codesStr(elemCodes[md.code].pk, elemCodes[md.code].ok)}.`, { italics: true, noIndent: true, after: 80 }),
-      ...testBlock(fos.tests[md.code] || []));
-  });
-  f2.push(h2(`2.${c.mdk.length + 1}. Практические работы`),
-    p('Практические работы выполняются по методическим указаниям. Обучающийся представляет результат работы, отчёт и отвечает на контрольные вопросы. Перечень работ соответствует тематическому плану рабочей программы.'));
-  c.mdk.forEach(md => {
-    f2.push(p(`Перечень практических работ ${md.code}:`, { bold: true, noIndent: true, before: 120, keepNext: true }));
-    let k = 0;
-    md.blocks.forEach(b => b.themes.forEach(th => th.practice.forEach(([x, h]) => f2.push(p(`${++k}. ${x} — ${h} ч (тема «${th.name}»).`, { noIndent: true, size: 22 })))));
-  });
-  f2.push(caption('Критерии оценки практической работы'), prCrit);
-
-  // 3. промежуточная аттестация
-  const examCrit = simpleTable(widths(P_W, [40, 0], 1), ['Оценка', 'Критерий'], [
+    ['2 «неудовлетворительно»', 'Работа выполнена менее чем на 60 % или результат не достигнут']]);
+  const testScale = simpleTable(widths(P_W, [70, 0], 1), ['Доля верных ответов, %', 'Оценка'], [['90–100', '5 «отлично»'], ['75–89', '4 «хорошо»'], ['60–74', '3 «удовлетворительно»'], ['менее 60', '2 «неудовлетворительно»']], { center: [0, 1] });
+  const examCrit = crit5([
     ['5 «отлично»', 'Полные ответы на оба теоретических вопроса; практическое задание выполнено полностью'],
-    ['4 «хорошо»', 'Ответы на вопросы с несущественными неточностями; практическое задание выполнено с 1–2 ошибками, исправленными самостоятельно'],
+    ['4 «хорошо»', 'Ответы с несущественными неточностями; практическое задание выполнено с 1–2 ошибками, исправленными самостоятельно'],
     ['3 «удовлетворительно»', 'Ответ на один вопрос полный, на второй — частичный; практическое задание выполнено не менее чем на 60 %'],
-    ['2 «неудовлетворительно»', 'Ответы на вопросы отсутствуют или содержат грубые ошибки; практическое задание не выполнено'],
-  ]);
-  const ticket = (md, label, ex) => table([P_W], [new TableRow({ children: [cell([
-    `${org.short}`, `${md.code} ${md.name}`, `Специальность ${fgos.code} ${fgos.name}, ${label}`, 'ЭКЗАМЕНАЦИОННЫЙ БИЛЕТ № 1',
+    ['2 «неудовлетворительно»', 'Ответы отсутствуют или содержат грубые ошибки; практическое задание не выполнено']]);
+  const cwCrit = crit5([['5 «отлично»', '90–100 % от максимального числа баллов'], ['4 «хорошо»', '75–89 %'], ['3 «удовлетворительно»', '60–74 %'], ['2 «неудовлетворительно»', 'менее 60 %']]);
+  const testBlock = T => T.flatMap((q, i) => [p(`${i + 1}. ${q.q}`, { noIndent: true, before: 80, keepNext: true }), p(q.options.map((o, j) => `${LETTERS[j]}) ${o}`).join('    '), { noIndent: true, indent: { left: mm(6) } })]);
+  const keyTable = T => {
+    const half2 = Math.ceil(T.length / 2); const w = Array(4).fill(Math.floor(P_W / 4));
+    const r = [];
+    for (let i = 0; i < half2; i++) { const a = T[i], b = T[i + half2]; r.push(new TableRow({ children: [cell(String(i + 1), w[0], { align: C }), cell(LETTERS[a.answer], w[1], { align: C }), cell(b ? String(i + half2 + 1) : '', w[2], { align: C }), cell(b ? LETTERS[b.answer] : '', w[3], { align: C })] })); }
+    return table(w, [hdr(['№ вопроса', 'Ответ', '№ вопроса', 'Ответ'], w), ...r]);
+  };
+  const ticket = (m, label, ex) => table([P_W], [new TableRow({ children: [cell([
+    org.short, `${m.code} ${m.name}`, `Специальность ${spec}, группа ${pj.group}, ${label}`, 'ЭКЗАМЕНАЦИОННЫЙ БИЛЕТ № 1',
     `1. ${ex.questions[0]}`, `2. ${ex.questions[Math.floor(ex.questions.length / 2)]}`, `3. Практическое задание: ${ex.tasks[0]}`,
     'Время на подготовку — 30 минут, на выполнение практического задания — 30 минут.',
     'Преподаватель ____________ /____________/        Председатель ПЦК ____________ /____________/',
   ], P_W, { size: 22 })] })]);
-  const f3 = [h1('3. Оценочные средства промежуточной аттестации по МДК')];
-  const cwAnswers = [];
-  let s3 = 0;
-  c.mdk.forEach(md => {
-    md.blocks.filter(b => b.form).forEach(b => {
-      s3 += 1;
-      const codes = codesStr(elemCodes[md.code].pk, elemCodes[md.code].ok);
-      if (['Э', 'ДЗ', 'З'].includes(b.form)) {
-        const ex = fos.exams[md.code];
-        f3.push(h2(`3.${s3}. ${md.code} «${md.name}». ${formName(b.form)[0].toUpperCase() + formName(b.form).slice(1)} (${b.label})`),
-          p(`Промежуточная аттестация проводится по билетам. Билет содержит два теоретических вопроса и одно практическое задание. Проверяемые результаты: ${codes}.`),
-          caption('Перечень теоретических вопросов'), ...ex.questions.map((q, i) => p(`${i + 1}. ${q}`, { noIndent: true })),
-          caption('Перечень практических заданий'), ...ex.tasks.map((q, i) => p(`${i + 1}. ${q}`, { noIndent: true })),
-          caption('Образец билета'), ticket(md, b.label, ex),
-          caption('Критерии оценки'), examCrit);
-      } else {
-        const cw = fos.control_works[md.code];
-        f3.push(h2(`3.${s3}. ${md.code} «${md.name}». Контрольная работа (${b.label})`),
-          p(`Контрольная работа выполняется письменно, время — ${cw.minutes || 90} минут. Проверяемые результаты: ${codes}. Каждое задание оценивается до 10 баллов; итоговая отметка — по шкале п. 1.5. Эталоны ответов приведены в разделе 6.`));
-        cw.variants.forEach((v, i) => {
-          f3.push(p(`Вариант ${i + 1}`, { bold: true, noIndent: true, before: 160, keepNext: true }), ...v.tasks.map((t, j) => p(`Задание ${j + 1}. ${t}`, { noIndent: true })));
-          if (v.answer) cwAnswers.push(`${md.code}, вариант ${i + 1}: ${v.answer}`);
-        });
+  const wPW = widths(P_W, [25, 0, 20], 1);
+  const sub = t => p(t, { bold: true, italics: true, noIndent: true, before: 160, after: 80, keepNext: true });
+  // номера форм — по порядку появления
+  const FN = { up: 1, pp: 2, char: 3, sheet: 4, proto: 5, exam: 6 };
+
+  const f5 = [h1('5. Фонд оценочных средств'),
+    p(`Фонд оценочных средств (ФОС) сформирован по элементам профессионального модуля: для каждого МДК — по семестрам (текущий контроль и промежуточная аттестация), затем для учебной и производственной практики и для экзамена по модулю. Самостоятельная внеаудиторная работа учебным планом группы ${pj.group} не предусмотрена.`),
+    h2('5.1. Общие критерии оценки'),
+    caption('Критерии оценки практической работы'), prCrit,
+    p('Тестирование проводится по завершении изучения тем в электронной среде (СДО Moodle) или на бланке; время — 1 минута на вопрос. Каждое задание имеет один правильный ответ и оценивается в 1 балл.', { before: 120 }),
+    caption('Шкала оценки тестирования'), testScale,
+    caption('Критерии оценки на экзамене по МДК'), examCrit,
+    caption('Критерии оценки контрольной работы'), cwCrit];
+  let sn = 1;
+  MB.forEach(({ m, blocks }) => {
+    sn += 1;
+    const x = mdkCodes(m);
+    f5.push(pageBreak(), h2(`5.${sn}. Фонд оценочных средств по ${m.code} «${m.name}»`),
+      p(`Проверяемые результаты: ${okStr(x.ok)}; ${pkStr(x.pk)}; ${lrStr(lrFromOk(x.ok))}. Формы промежуточной аттестации: ${mdkFormsText(m)}.`, { italics: true }));
+    // последний семестр, в котором встречается тема — тест по теме проводится в этом семестре
+    const themeSem = {};
+    blocks.forEach(b => b.groups.forEach(g => { themeSem[g.ti] = b.sem; }));
+    blocks.forEach((b, bi) => {
+      f5.push(h3(`5.${sn}.${bi + 1}. ${b.label}`));
+      const ws = uniq(b.groups.flatMap(g => g.lessons.filter(l => l.kind === 'P').map(l => l.n)));
+      const allW = m.themes.flatMap(th => th.works || []);
+      f5.push(sub('Текущий контроль. Практические работы'));
+      if (ws.length) f5.push(table(wPW, [hdr(['№ практической работы', 'Тема практической работы', 'Часов в семестре'], wPW), ...ws.map(n => { const w = allW.find(y => y.n === n); const h = b.groups.flatMap(g => g.lessons).filter(l => l.kind === 'P' && l.n === n).length * LESSON; return new TableRow({ children: [cell(String(n), wPW[0], { align: C }), cell(w.title.replace(/\.\s*$/, ''), wPW[1]), cell(String(h), wPW[2], { align: C })] }); })]));
+      else f5.push(p('Практические работы в семестре не предусмотрены.'));
+      const T = (fos.tests[m.code] || []).filter(q => q.t && themeSem[q.t - 1] === b.sem);
+      f5.push(sub('Текущий контроль. Тестовые задания'));
+      if (T.length) {
+        const thNames = uniq(T.map(q => q.t)).sort((a, b2) => a - b2).map(t => `${m.themes[t - 1].num} ${m.themes[t - 1].name}`);
+        f5.push(p(`Темы: ${thNames.join('; ')}.`, { italics: true, noIndent: true, after: 80 }), ...testBlock(T),
+          p('Ключ', { bold: true, noIndent: true, before: 120, after: 80, keepNext: true }), keyTable(T));
+      } else f5.push(p('Тестирование в семестре проводится в форме устного опроса по темам семестра.'));
+      f5.push(sub('Промежуточная аттестация'));
+      if (!b.form) f5.push(p('Промежуточная аттестация в семестре учебным планом не предусмотрена; оценка за семестр выставляется по результатам текущего контроля.'));
+      else if (['ДР', 'КР'].includes(b.form) && fos.control_works[m.code]) {
+        const cw = fos.control_works[m.code];
+        f5.push(p(`Форма — контрольная работа. Работа выполняется письменно, время — ${cw.minutes || 90} минут; ${cw.variants.length} варианта одинаковой сложности, каждое задание оценивается до 10 баллов. Критерии — п. 5.1.`));
+        cw.variants.forEach((v, i) => f5.push(p(`Вариант ${i + 1}`, { bold: true, noIndent: true, before: 160, keepNext: true }), ...v.tasks.map((t, j) => p(`Задание ${j + 1}. ${t}`, { noIndent: true }))));
+        f5.push(p('Эталоны ответов', { bold: true, noIndent: true, before: 160, keepNext: true }), ...cw.variants.map((v, i) => p(`Вариант ${i + 1}. ${v.answer}`, { noIndent: true })));
+      } else if (fos.exams[m.code]) {
+        const ex = fos.exams[m.code];
+        f5.push(p(`Форма — ${formNom(b.form)}. Экзамен проводится по билетам: два теоретических вопроса и одно практическое задание. Критерии — п. 5.1.`),
+          caption('Вопросы к экзамену'), ...olist(ex.questions),
+          caption('Типы практических задач к экзамену'), ...olist(ex.tasks),
+          caption('Образец экзаменационного билета'), ticket(m, b.label, ex));
       }
     });
   });
 
-  // 4. практики
-  const pracCrit = simpleTable(widths(P_W, [40, 0], 1), ['Оценка', 'Критерий'], [
-    ['5 «отлично»', 'Все виды работ выполнены качественно и в срок; отчёт и дневник оформлены полностью; в аттестационном листе все ПК оценены как освоенные'],
-    ['4 «хорошо»', 'Все виды работ выполнены, допущены несущественные недочёты; отчёт оформлен с незначительными замечаниями'],
-    ['3 «удовлетворительно»', 'Выполнено не менее 60 % видов работ; отчёт неполный; отдельные ПК освоены частично'],
-    ['2 «неудовлетворительно»', 'Выполнено менее 60 % видов работ или отчёт не представлен'],
-  ]);
-  const wW = widths(P_W, [10, 0, 30, 18, 28], 1);
-  const worksTable = arr => table(wW, [hdr(['№', 'Вид работ', 'ПК', 'Часы', 'Отметка о выполнении'], wW), ...arr.flatMap(u => u.works.map(w => [w, u])).map(([w, u], i) => new TableRow({ children: [cell(String(i + 1), wW[0], { align: C }), cell(`${w.name} (${u.label})`, wW[1]), cell(codesStr(parseCodes(w.codes).pk, []) || '—', wW[2]), cell(String(w.tasks ? w.tasks.reduce((a, x) => a + x[1], 0) : w.days.length * PP_DAY), wW[3], { align: C }), cell('', wW[4])] }))]);
-  const f4 = [h1('4. Оценочные средства по учебной и производственной практике')];
-  if (c.up.length) f4.push(h2('4.1. Учебная практика'), p(`Учебная практика ${c.up[0].code} оценивается на основании выполненных работ, отчёта и аттестационного листа (раздел 7, форма 1). Проверяемые результаты: ${codesStr(upPK, [])}; ОК 01–09; ЛР по п. 1.1.3 рабочей программы.`), worksTable(c.up));
-  if (c.pp.length) f4.push(h2('4.2. Производственная практика'), p(`Производственная практика ${c.pp[0].code} проводится в профильных организациях. Обучающийся представляет дневник практики, отчёт, аттестационный лист и характеристику от руководителя профильной организации (раздел 7, формы 2 и 3). Проверяемые результаты: ${codesStr(ppPK, [])}; ОК 01–09; ЛР по п. 1.1.3 рабочей программы.`), worksTable(c.pp),
-    p('Отчёт по производственной практике включает: титульный лист; характеристику организации; описание выполненных работ по видам; копии составленных документов; выводы.', { before: 120 }));
-  f4.push(caption('Критерии оценки по практике'), pracCrit);
+  // учебная практика
+  const wUW = widths(P_W, [12, 0, 32, 16], 1);
+  const worksTable = (u, kind) => table(wUW, [hdr(['№', 'Вид работ', 'ПК', 'Часов'], wUW), ...u.works.map((w, i) => new TableRow({ children: [cell(String(i + 1), wUW[0], { align: C }), cell(cap(w.name), wUW[1]), cell(pkStr(parseCodes(w.codes).pk), wUW[2]), cell(String(kind === 'up' ? w.tasks.reduce((a, t) => a + t[1], 0) : w.days.length * PP_DAY), wUW[3], { align: C })] }))]);
+  const wA = widths(P_W, [10, 0, 30, 40], 1);
+  const sig = t => p(t, { noIndent: true, before: 120 });
+  const upPK = workCodes(c.up);
+  if (c.up.length) {
+    sn += 1;
+    f5.push(pageBreak(), h2(`5.${sn}. Фонд оценочных средств по учебной практике ${c.up[0].code}`),
+      p(`Проверяемые результаты: ${pkStr(upPK)}; ОК 01–09; ${lrStr(lrFromOk(OK_CODES))}. Учебная практика оценивается по результатам выполнения видов работ (наблюдение, проверка результатов) и аттестационному листу (форма ${FN.up}).`));
+    c.up.forEach((u, i) => {
+      f5.push(h3(`5.${sn}.${i + 1}. ${u.label}`), sub('Виды работ'), worksTable(u, 'up'), sub('Промежуточная аттестация'));
+      if (u.form) {
+        f5.push(p(`Форма — ${formNom(u.form)}. Проводится по результатам выполнения всех видов работ, аттестационного листа и защиты отчёта по практике; обучающийся отвечает на два вопроса из перечня.`));
+        if ((fos.up_questions || []).length) f5.push(caption('Вопросы к дифференцированному зачёту'), ...olist(fos.up_questions));
+        f5.push(caption('Критерии оценки'), crit5([['5 «отлично»', 'Все виды работ выполнены качественно, отчёт оформлен полностью, ответы на вопросы полные'], ['4 «хорошо»', 'Все виды работ выполнены, допущены несущественные недочёты в отчёте или ответах'], ['3 «удовлетворительно»', 'Выполнено не менее 60 % видов работ, отчёт неполный, ответы с ошибками'], ['2 «неудовлетворительно»', 'Выполнено менее 60 % видов работ или отчёт не представлен']]));
+      } else f5.push(p('Промежуточная аттестация в семестре не предусмотрена.'));
+    });
+    f5.push(caption(`Форма ${FN.up}. Аттестационный лист по учебной практике ${c.up[0].code}`, { before: 240 }),
+      p(`Ф. И. О. обучающегося ______________________________  Группа ${pj.group}`, { noIndent: true }),
+      p(`Сроки практики: с «__» ______ 20__ г. по «__» ______ 20__ г.  Место: ${org.short}`, { noIndent: true, after: 120 }),
+      table(wA, [hdr(['№', 'Профессиональная компетенция', 'Освоена / не освоена', 'Подпись руководителя'], wA), ...PK.filter(([k]) => upPK.includes(k)).map(([k, n], i) => new TableRow({ children: [cell(String(i + 1), wA[0], { align: C }), cell(`${k}. ${n}`, wA[1]), cell('', wA[2]), cell('', wA[3])] }))]),
+      sig(`Итоговая оценка${upForm ? ` (${formNom(upForm.form)})` : ''}: ____________   Руководитель практики ____________ /____________/   «__» ______ 20__ г.`));
+  }
+  // производственная практика
+  if (c.pp.length) {
+    sn += 1;
+    const ppPK = workCodes(c.pp);
+    f5.push(pageBreak(), h2(`5.${sn}. Фонд оценочных средств по производственной практике ${c.pp[0].code}`),
+      p(`Проверяемые результаты: ${pkStr(ppPK)}; ОК 01–09; ${lrStr(lrFromOk(OK_CODES))}.`));
+    c.pp.forEach((u, i) => {
+      f5.push(h3(`5.${sn}.${i + 1}. ${u.label}`), sub('Виды работ'), worksTable(u, 'pp'));
+      f5.push(sub('Итоги практики'), p(u.form ? `Промежуточная аттестация — ${formNom(u.form)}.` : 'Промежуточная аттестация (дифференцированный зачёт) по производственной практике не проводится. По окончании практики обучающийся оформляет и сдаёт отчёт по практике; руководитель от профильной организации заполняет аттестационный лист (форма ' + FN.pp + ') и характеристику (форма ' + FN.char + '). Отчёт, аттестационный лист и характеристика предъявляются для допуска к экзамену по модулю.'));
+    });
+    f5.push(p('Требования к отчёту по практике: титульный лист; характеристика организации и её сетевой инфраструктуры; описание выполненных работ по каждому виду работ; схемы, таблицы адресации, журналы и другие документы, составленные обучающимся; выводы.', { before: 120 }),
+      caption(`Форма ${FN.pp}. Аттестационный лист по производственной практике ${c.pp[0].code}`, { before: 240 }),
+      p(`Ф. И. О. обучающегося ______________________________  Группа ${pj.group}`, { noIndent: true }),
+      p('Организация ________________________________  Сроки: с «__» ______ по «__» ______ 20__ г.', { noIndent: true, after: 120 }),
+      table(wA, [hdr(['№', 'Профессиональная компетенция', 'Качество выполнения работ', 'Освоена / не освоена'], wA), ...PK.map(([k, n], i) => new TableRow({ children: [cell(String(i + 1), wA[0], { align: C }), cell(`${k}. ${n}`, wA[1]), cell('', wA[2]), cell('', wA[3])] }))]),
+      sig('Отчёт по практике сдан: «__» ______ 20__ г.'),
+      sig('Руководитель от организации ____________ /____________/  М. П.'),
+      sig('Руководитель от образовательной организации ____________ /____________/'),
+      caption(`Форма ${FN.char}. Характеристика обучающегося по итогам производственной практики`, { before: 240 }),
+      p(`Ф. И. О. обучающегося ______________________________  Группа ${pj.group}`, { noIndent: true, after: 120 }),
+      table(widths(P_W, [22, 60, 0], 2), [hdr(['ОК', 'Личностные результаты', 'Проявлено / частично / не проявлено'], widths(P_W, [22, 60, 0], 2)), ...OK_CODES.map(o => new TableRow({ children: [cell(o, mm(22)), cell(lrStr(okLr[o] || []), mm(60)), cell('', P_W - mm(82))] }))]),
+      sig('Дополнительные сведения (дисциплина, ответственность, отношение к работе): ______________________________________________________________'),
+      sig('Руководитель от организации ____________ /____________/  М. П.   «__» ______ 20__ г.'));
+  }
 
-  // 5. экзамен по модулю
+  // экзамен по модулю
+  sn += 1;
+  const pkMax = {};
+  me.checklist.forEach(([k, , pt]) => { pkMax[k] = (pkMax[k] || 0) + Number(pt); });
   const wE = widths(P_W, [18, 0, 22, 22], 1);
   const wOL = widths(P_W, [22, 55, 0, 40], 2);
-  const f5 = [h1('5. Оценочные средства экзамена по модулю'),
-    h2('5.1. Паспорт экзамена по модулю'),
-    p(`Экзамен по модулю проводится (${c.meta.exam_label}) после завершения всех МДК и практик модуля. К экзамену допускаются обучающиеся, имеющие положительные оценки по всем элементам модуля. Экзамен принимает комиссия в составе не менее трёх человек с участием представителя работодателя.`),
+  const wPrt = widths(P_W, [10, 0, 45, 35, 25], 1);
+  const wPro = widths(P_W, [10, 0, 18, 22, 35, 22], 1);
+  const okCritTxt = o => ((crit[o] || {}).criteria || []).join('; ');
+  const fixForm = t => t.replace(/\(форма \d+\)/g, `(форма ${FN.proto})`);
+  f5.push(pageBreak(), h2(`5.${sn}. Контрольно-оценочные средства для проведения квалификационного экзамена по модулю`),
+    p(`Экзамен по модулю ${pmQ} проводится в ${c.meta.exam_label.replace('курс', 'курсе').replace('семестр', 'семестре')} после освоения ${c.mdk.map(m => m.code).join(', ')}${c.up.length ? ', ' + c.up[0].code : ''}${c.pp.length ? ' и ' + c.pp[0].code : ''}. К экзамену допускаются обучающиеся, имеющие положительные оценки по промежуточной аттестации МДК и учебной практики, аттестационные листы по учебной и производственной практике и сданный отчёт по производственной практике. Экзамен принимает комиссия в составе не менее трёх человек с участием представителя работодателя. По итогам экзамена принимается решение «вид деятельности освоен / не освоен» и выставляется оценка по пятибалльной шкале.`),
     p('Экзамен состоит из частей:', { keepNext: true }),
     ...bullets(me.parts.map((x, i, a) => `${x.name} (${x.pk.join(', ')})${x.minutes ? ` — ${x.minutes} минут` : ''}${x.prep_minutes ? `, подготовка ${x.prep_minutes} минут` : ''}${i === a.length - 1 ? '.' : ';'}`)),
     p('Общие компетенции и личностные результаты оцениваются экспертным наблюдением в ходе экзамена.'),
     p(`Условия проведения: ${me.conditions}`),
-    ...(me.portfolio ? [p(`Состав портфолио: ${me.portfolio}`)] : []),
-    h2('5.2. Задания для экзамена по модулю'),
+    caption('Задания для экзамена по модулю'),
     p(`Задания выдаются в ${me.variants.length} вариантах одинакового объёма и сложности.`),
     ...me.variants.flatMap(v => [
       p(v.title, { bold: true, noIndent: true, before: 200, keepNext: true }),
       ...(v.data ? [p(`Исходные данные. ${v.data}`, { noIndent: true })] : []),
-      ...olist(v.tasks.map(t => `${t.pk}. ${t.text}`), 22),
+      ...olist(v.tasks.map(t => `${t.pk}. ${fixForm(t.text)}`), 22),
       ...(v.examiner_note ? [p(`Для экзаменатора (не выдаётся обучающемуся): ${v.examiner_note}`, { italics: true, noIndent: true, size: 22, before: 80 })] : []),
     ]),
-    h2('5.3. Оценочный лист экзамена по модулю'),
+    caption('Критерии итоговой оценки'),
+    p(`Баллы суммируются по оценочному листу (форма ${FN.sheet}, максимум 100). Вид деятельности признаётся освоенным, если по каждой ПК набрано не менее 50 % возможных баллов (${Object.entries(pkMax).map(([k, v]) => `${k} — не менее ${Math.ceil(v / 2)}`).join(', ')}) и сумма составляет не менее 60 баллов.`),
+    simpleTable(widths(P_W, [60, 0], 1), ['Сумма баллов', 'Оценка'], [['90–100', '5 «отлично», вид деятельности освоен'], ['75–89', '4 «хорошо», вид деятельности освоен'], ['60–74', '3 «удовлетворительно», вид деятельности освоен'], ['менее 60 или не выполнено условие по одной из ПК', '2 «неудовлетворительно», вид деятельности не освоен']], { center: [0] }),
+    pageBreak(),
+    caption(`Форма ${FN.sheet}. Оценочный лист экзамена по модулю`, { before: 0 }),
     p(`Ф. И. О. обучающегося ________________________   Группа ${pj.group}   Вариант ___`, { noIndent: true, after: 120 }),
     table(wE, [hdr(['ПК', 'Критерий', 'Макс. балл', 'Балл'], wE), ...me.checklist.map(([k, t, pt]) => new TableRow({ children: [cell(k, wE[0]), cell(t, wE[1]), cell(String(pt), wE[2], { align: C }), cell('', wE[3])] })),
       new TableRow({ children: [cell('', wE[0]), cell('Итого', wE[1], { bold: true }), cell('100', wE[2], { bold: true, align: C }), cell('', wE[3])] })]),
     caption('Оценка общих компетенций и личностных результатов', { before: 200 }),
-    table(wOL, [hdr(['ОК', 'ЛР', 'Наблюдаемое проявление', 'Проявлено / частично / нет'], wOL), ...OK_CODES.map(o => new TableRow({ children: [cell(o, wOL[0]), cell(lrStr(okLrMod[o] || []), wOL[1]), cell(okCrit[o][0], wOL[2]), cell('', wOL[3])] }))]),
-    h2('5.4. Критерии итоговой оценки'),
-    p(`Баллы суммируются (максимум 100). Вид деятельности признаётся освоенным, если по каждой ПК набрано не менее 50 % возможных баллов (${Object.entries(pkMax).map(([k, v]) => `${k} — не менее ${Math.ceil(v / 2)}`).join(', ')}) и сумма составляет не менее 60 баллов.`),
-    simpleTable(widths(P_W, [60, 0], 1), ['Сумма баллов', 'Оценка'], [['90–100', '5 «отлично», вид деятельности освоен'], ['75–89', '4 «хорошо», вид деятельности освоен'], ['60–74', '3 «удовлетворительно», вид деятельности освоен'], ['менее 60 или не выполнено условие по одной из ПК', '2 «неудовлетворительно», вид деятельности не освоен']], { center: [0] }),
-    p('Результаты экзамена оформляются протоколом (раздел 7, форма 5).', { before: 120 }),
-  ];
-
-  // 6. ключи
-  const keyTable = (T, title) => {
-    const half2 = Math.ceil(T.length / 2); const w = Array(4).fill(Math.floor(P_W / 4));
-    const r = [];
-    for (let i = 0; i < half2; i++) { const a = T[i], b = T[i + half2]; r.push(new TableRow({ children: [cell(String(i + 1), w[0], { align: C }), cell(LETTERS[a.answer], w[1], { align: C }), cell(b ? String(i + half2 + 1) : '', w[2], { align: C }), cell(b ? LETTERS[b.answer] : '', w[3], { align: C })] })); }
-    return [p(title, { bold: true, noIndent: true, before: 160, after: 80, keepNext: true }), table(w, [hdr(['№ вопроса', 'Ответ', '№ вопроса', 'Ответ'], w), ...r])];
-  };
-  const f6 = [h1('6. Ключи к тестовым заданиям'), ...c.mdk.flatMap(md => keyTable(fos.tests[md.code] || [], `${md.code} «${md.name}»`)),
-    ...(cwAnswers.length ? [p('Эталоны ответов к контрольным работам', { bold: true, noIndent: true, before: 200, after: 80 }), ...cwAnswers.map(x => p(x, { noIndent: true }))] : [])];
-
-  // 7. формы
-  const wA = widths(P_W, [10, 0, 30, 40], 1);
-  const sig = t => p(t, { noIndent: true, before: 120 });
-  const wPrt = widths(P_W, [10, 0, 45, 35, 25], 1);
-  const wPro = widths(P_W, [10, 0, 18, 22, 35, 22], 1);
-  const f7 = [h1('7. Формы документов'),
-    caption('Форма 1. Аттестационный лист по учебной практике', { before: 0, after: 120 }),
-    p(`Ф. И. О. обучающегося ______________________________  Группа ${pj.group}`, { noIndent: true }),
-    p(`Сроки практики: с «__» ______ 20__ г. по «__» ______ 20__ г.  Место: ${org.short}`, { noIndent: true, after: 120 }),
-    table(wA, [hdr(['№', 'Профессиональная компетенция', 'Освоена / не освоена', 'Подпись руководителя'], wA), ...PK.filter(([k]) => upPK.includes(k)).map(([k, n], i) => new TableRow({ children: [cell(String(i + 1), wA[0], { align: C }), cell(`${k}. ${n}`, wA[1]), cell('', wA[2]), cell('', wA[3])] }))]),
-    sig('Итоговая оценка: ____________   Руководитель практики ____________ /____________/   «__» ______ 20__ г.'),
+    table(wOL, [hdr(['ОК', 'ЛР', 'Наблюдаемое проявление', 'Проявлено / частично / нет'], wOL), ...OK_CODES.map(o => new TableRow({ children: [cell(o, wOL[0]), cell(lrStr(okLr[o] || []), wOL[1]), cell(okCritTxt(o), wOL[2]), cell('', wOL[3])] }))]),
+    sig('Члены комиссии ____________ /____________/   ____________ /____________/'),
     pageBreak(),
-    caption('Форма 2. Аттестационный лист по производственной практике', { before: 0, after: 120 }),
-    p(`Ф. И. О. обучающегося ______________________________  Группа ${pj.group}`, { noIndent: true }),
-    p('Организация ________________________________  Сроки: с «__» ______ по «__» ______ 20__ г.', { noIndent: true, after: 120 }),
-    table(wA, [hdr(['№', 'Профессиональная компетенция', 'Качество выполнения работ (5–2)', 'Освоена / не освоена'], wA), ...PK.map(([k, n], i) => new TableRow({ children: [cell(String(i + 1), wA[0], { align: C }), cell(`${k}. ${n}`, wA[1]), cell('', wA[2]), cell('', wA[3])] }))]),
-    sig('Руководитель от организации ____________ /____________/  М. П.'),
-    sig('Руководитель от образовательной организации ____________ /____________/   Итоговая оценка: ________'),
-    pageBreak(),
-    caption('Форма 3. Характеристика обучающегося по итогам производственной практики', { before: 0, after: 120 }),
-    p(`Ф. И. О. обучающегося ______________________________  Группа ${pj.group}`, { noIndent: true, after: 120 }),
-    table(widths(P_W, [22, 60, 0], 2), [hdr(['ОК', 'Личностные результаты', 'Проявлено / частично / не проявлено'], widths(P_W, [22, 60, 0], 2)), ...OK_CODES.map(o => new TableRow({ children: [cell(o, mm(22)), cell(lrStr(okLrMod[o] || []), mm(60)), cell('', P_W - mm(82))] }))]),
-    sig('Дополнительные сведения (дисциплина, ответственность, отношение к работе): ______________________________________________________________'),
-    sig('Руководитель от организации ____________ /____________/  М. П.   «__» ______ 20__ г.'),
-    pageBreak(),
-    caption(`Форма 4. ${me.protocol_title || 'Протокол проверки результата выполнения задания'}`, { before: 0, after: 120 }),
+    caption(`Форма ${FN.proto}. ${me.protocol_title || 'Протокол проверки результата выполнения задания'}`, { before: 0 }),
     p('Объект проверки: ______________________  Вариант ___  Дата «__» ______ 20__ г.', { noIndent: true, after: 120 }),
     table(wPrt, [hdr(['№', 'Проверка', 'Метод', 'Ожидаемый результат', 'Факт'], wPrt), ...me.protocol_checks.map((r, i) => new TableRow({ children: [cell(String(i + 1), wPrt[0], { align: C }), cell(r[0], wPrt[1]), cell(r[1], wPrt[2]), cell(r[2], wPrt[3]), cell('', wPrt[4])] }))]),
     sig('Вывод: ______________________________________________'),
     sig('Проверку провёл ____________ /____________/'),
     pageBreak(),
-    caption(`Форма 5. Протокол экзамена по профессиональному модулю ${pmTitle}`, { before: 0, after: 120 }),
-    p(`Специальность ${fgos.code} ${fgos.name}, группа ${pj.group}. Дата «__» ______ 20__ г.`, { noIndent: true }),
+    caption(`Форма ${FN.exam}. Протокол экзамена по профессиональному модулю ${pmTitle}`, { before: 0 }),
+    p(`Специальность ${spec}, группа ${pj.group}. Дата «__» ______ 20__ г.`, { noIndent: true }),
     p('Состав комиссии: председатель ______________________; члены комиссии ______________________, ______________________ (представитель работодателя).', { noIndent: true, after: 120 }),
     table(wPro, [hdr(['№', 'Ф. И. О. обучающегося', 'Вариант', 'Сумма баллов', 'Вид деятельности освоен / не освоен', 'Оценка'], wPro), ...[1, 2, 3, 4, 5].map(i => new TableRow({ children: wPro.map((w, j) => cell(j ? '' : String(i), w, { align: C })) }))]),
     sig('Председатель комиссии ____________ /____________/'),
-    sig('Члены комиссии ____________ /____________/   ____________ /____________/'),
-  ];
-
-  const fosBody = [...f1, pageBreak(), ...f2, pageBreak(), ...f3, pageBreak(), ...f4, pageBreak(), ...f5, pageBreak(), ...f6, pageBreak(), ...f7];
+    sig('Члены комиссии ____________ /____________/   ____________ /____________/'));
 
   const footer = () => new Footer({ children: [new Paragraph({ alignment: C, children: [new TextRun({ font: H.FONT, size: 22, children: [PageNumber.CURRENT] })] })] });
   const portrait = { page: { size: { width: 11906, height: 16838 }, margin: P_MARG } };
   const landscape = { page: { size: { width: 11906, height: 16838, orientation: PageOrientation.LANDSCAPE }, margin: L_MARG } };
   const doc = new Document({
-    creator: org.short, title: `Рабочая программа ${pmTitle} с фондом оценочных средств`,
+    creator: org.short, title: `Рабочая программа ${pmTitle}`,
     styles: H.styles(), numbering: H.numberingConfig(),
     sections: [
-      { properties: { ...portrait, titlePage: true }, footers: { default: footer(), first: new Footer({ children: [new Paragraph('')] }) }, children: [...titlePage, ...back, ...toc, ...sec1] },
+      { properties: { ...portrait, titlePage: true }, footers: { default: footer(), first: new Footer({ children: [new Paragraph('')] }) }, children: [...titlePage, ...back, ...sec1] },
       { properties: { ...landscape }, footers: { default: footer() }, children: sec2 },
-      { properties: { ...portrait }, footers: { default: footer() }, children: [...sec3, pageBreak(), ...sec4, pageBreak(), ...fosBody] },
+      { properties: { ...portrait }, footers: { default: footer() }, children: [...sec3, pageBreak(), ...sec4, pageBreak(), ...f5] },
     ],
   });
-  return { doc, TOC };
-}
-
-// --- номера страниц для содержания: рендер через LibreOffice и поиск заголовков в PDF ---
-const { execFileSync } = require('child_process');
-const os = require('os');
-function which(cmd) { try { execFileSync(process.platform === 'win32' ? 'where' : 'which', [cmd], { stdio: 'ignore' }); return true; } catch { return false; } }
-function findSoffice() {
-  const cands = ['soffice', 'libreoffice', 'C:\\Program Files\\LibreOffice\\program\\soffice.exe', '/Applications/LibreOffice.app/Contents/MacOS/soffice'];
-  return cands.find(x => (x.includes('/') || x.includes('\\') ? fs.existsSync(x) : which(x)));
-}
-function pdfPagesText(pdf) {
-  if (which('pdftotext')) return execFileSync('pdftotext', ['-layout', pdf, '-'], { maxBuffer: 1 << 28 }).toString('utf8').split('\f');
-  return null;
-}
-function locatePages(docxPath, TOC) {
-  const soffice = findSoffice();
-  if (!soffice) return null;
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rpgen-'));
-  const src = path.join(tmp, 'doc.docx');
-  fs.copyFileSync(docxPath, src);
-  execFileSync(soffice, ['--headless', '--convert-to', 'pdf', '--outdir', tmp, src], { stdio: 'ignore', timeout: 180000 });
-  const pages = pdfPagesText(path.join(tmp, 'doc.pdf'));
-  if (!pages) return null;
-  const norm = s => s.replace(/\s+/g, ' ');
-  const res = {};
-  let from = 3;
-  for (const [key, , , needle] of TOC) {
-    const n = norm(needle);
-    for (let i = from; i < pages.length; i++) if (norm(pages[i]).includes(n)) { res[key] = i + 1; from = i; break; }
-  }
-  return res;
+  return { doc };
 }
 
 async function build(projectFile, opts = {}) {
   const ctx = loadProject(projectFile);
   if (!ctx.content) throw new Error(`Нет файла наполнения ${ctx.contentPath}. Сначала выполните init и fill.`);
-  const v = validate(ctx.content);
+  if (!ctx.pop) throw new Error('В project.json не указан файл ПОП (поле "pop").');
+  const v = validate(ctx.content, { pop: ctx.pop });
   v.warnings.forEach(w => console.log('  предупреждение:', w));
   if (v.errors.length && !opts.force) {
     v.errors.forEach(e => console.log('  ОШИБКА:', e));
     throw new Error(`Наполнение не прошло проверку (${v.errors.length} ошибок). Исправьте или запустите с --force.`);
   }
   fs.mkdirSync(path.dirname(ctx.outputPath), { recursive: true });
-  let { doc, TOC } = buildDocument(ctx);
+  const { doc } = buildDocument(ctx);
   fs.writeFileSync(ctx.outputPath, await Packer.toBuffer(doc));
-  let pages = null;
-  if (!opts.noToc) {
-    try { pages = locatePages(ctx.outputPath, TOC); } catch (e) { console.log('  не удалось посчитать страницы:', e.message); }
-    if (pages) {
-      ({ doc } = buildDocument(ctx, pages));
-      fs.writeFileSync(ctx.outputPath, await Packer.toBuffer(doc));
-      const check = locatePages(ctx.outputPath, TOC);
-      if (check && JSON.stringify(check) !== JSON.stringify(pages)) {
-        ({ doc } = buildDocument(ctx, check));
-        fs.writeFileSync(ctx.outputPath, await Packer.toBuffer(doc));
-      }
-    } else console.log('  LibreOffice или pdftotext не найдены: номера страниц в содержании не проставлены. Проставьте их вручную после открытия в Word.');
-  }
-  return { output: ctx.outputPath, pages };
+  return { output: ctx.outputPath };
 }
 
 module.exports = { build, buildDocument, loadProject };

@@ -13,7 +13,7 @@ const HELP = `
 rpgen — рабочая программа профессионального модуля + ФОС одним файлом .docx
 
 Команды (project.json — паспорт документа):
-  new <папка> --plan план.tsv --pm ПМ.02 [--group ОА-2401] [--vd "название ВД"] [--fgos путь] [--vosp путь]
+  new <папка> --plan план.tsv --pm ПМ.02 --pop ПОП.json [--group ОА-2401] [--vd "название ВД"] [--fgos путь] [--vosp путь]
                                    создать новый проект на основе примера
   init <project.json> [--force]    разобрать учебный план и создать каркас content.json (часы, семестры, формы)
   stages <project.json>            список этапов наполнения и их статус
@@ -23,8 +23,7 @@ rpgen — рабочая программа профессионального �
   import <project.json> <ответ.json> [--stage ID]
                                    ручной режим: проверить ответ нейросети и записать его в content.json
   validate <project.json>          проверить наполнение
-  build <project.json> [--force] [--no-toc]
-                                   собрать .docx (номера страниц в содержании — через LibreOffice)
+  build <project.json> [--force]   собрать .docx по шаблону СПЭТ
 `;
 
 function args() {
@@ -58,7 +57,7 @@ async function main() {
     Object.assign(ex, {
       fgos: rel(opt.fgos || path.join(root, 'data/fgos/09.02.06.json')),
       vospitanie: rel(opt.vosp || path.join(root, 'data/vospitanie/spet_2026-2027.json')),
-      plan: rel(opt.plan), pm: opt.pm, vd_name: opt.vd || undefined, group: opt.group || ex.group,
+      plan: rel(opt.plan), pop: opt.pop ? rel(opt.pop) : undefined, forms_override: {}, pm: opt.pm, vd_name: opt.vd || undefined, group: opt.group || ex.group,
       content: 'content.json', output: `РП_${opt.pm}_${opt.group || ex.group}_с_ФОС.docx`,
       hints: { general: '', mdk: {}, up: '' },
       llm: { provider: 'openai', base_url: 'https://api.openai.com/v1', model: '', api_key_env: 'LLM_API_KEY', temperature: 0.4, json_mode: true },
@@ -74,10 +73,13 @@ async function main() {
 
   if (cmd === 'init') {
     if (ctx.content && !opt.force) throw new Error(`${ctx.contentPath} уже существует. Перезаписать: --force (всё наполнение будет потеряно)`);
-    const { skeleton, errors } = buildSkeleton(ctx.plan, ctx.project, ctx.fgos);
+    const { skeleton, errors } = buildSkeleton(ctx.plan, ctx.project, ctx.fgos, ctx.pop);
     ctx.content = skeleton; saveContent(ctx);
     console.log(`Каркас: ${ctx.contentPath}`);
-    skeleton.mdk.forEach(m => console.log(`  ${m.code} «${m.name}»: теория ${m.T} ч, практика ${m.P} ч${m.K ? `, курсовой ${m.K} ч` : ''}\n` + m.blocks.map(b => `     ${b.label}: ${b.hours} ч → теория ${b.T} (${b.T / 2} пар), практика ${b.P}${b.K ? `, курсовой ${b.K}` : ''}${b.form ? `, ${b.form}` : ''}`).join('\n')));
+    skeleton.mdk.forEach(m => {
+      console.log(`  ${m.code} «${m.name}»: теория ${m.T} ч (${m.T / 2} пар), практика ${m.P} ч (${m.P / 2} пар)${m.K ? `, курсовой ${m.K} ч` : ''}; семестры: ` + m.sems.map(s => `${s.label} — ${s.hours} ч${s.form ? ` (${s.form})` : ''}`).join(', '));
+      m.themes.forEach(t => console.log(`     ${t.num} ${t.name}: теоретических занятий ${t.theory_count}, практических работ ${t.works.length} (${t.works.reduce((a, w) => a + w.pairs, 0)} пар)`));
+    });
     skeleton.up.forEach(u => console.log(`  ${u.code}: ${u.label} — ${u.hours} ч (${u.hours / 2} пар)`));
     skeleton.pp.forEach(u => console.log(`  ${u.code}: ${u.label} — ${u.hours} ч (${u.days} дн. по 6 ч)`));
     if (errors.length) { console.log('\nЗамечания к учебному плану:'); errors.forEach(e => console.log('  ! ' + e)); }
@@ -106,7 +108,7 @@ async function main() {
       fresh.apply(data); markDone(ctx, fresh.id); saveContent(ctx);
       console.log('   готово');
     }
-    const v = validate(ctx.content);
+    const v = validate(ctx.content, { pop: ctx.pop });
     console.log(v.errors.length ? `\nПроверка: ${v.errors.length} ошибок — rpgen validate` : '\nВсе этапы выполнены, проверка пройдена. Далее: rpgen build');
     return;
   }
@@ -140,7 +142,7 @@ async function main() {
   }
 
   if (cmd === 'validate') {
-    const v = validate(ctx.content);
+    const v = validate(ctx.content, { pop: ctx.pop });
     v.errors.forEach(e => console.log('ОШИБКА: ' + e));
     v.warnings.forEach(w => console.log('предупреждение: ' + w));
     console.log(v.errors.length ? `Итого ошибок: ${v.errors.length}` : 'Ошибок нет.');
@@ -149,7 +151,7 @@ async function main() {
   }
 
   if (cmd === 'build') {
-    const r = await build(projectFile, { force: !!opt.force, noToc: !!opt['no-toc'] });
+    const r = await build(projectFile, { force: !!opt.force });
     console.log(`Готово: ${r.output}`);
     return;
   }

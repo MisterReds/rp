@@ -1,16 +1,15 @@
 // Этапы наполнения. Каждый этап: свой промпт (папка prompts/), своя проверка ответа и место в content.json.
-// Структура (часы, семестры, формы аттестации) задаётся каркасом и нейросетью не меняется.
+// Структура (часы, семестры, формы аттестации) задаётся учебным планом, темы и практические работы — ПОП; нейросеть их не меняет.
 'use strict';
 const fs = require('fs');
 const path = require('path');
 const { parseCodes, examForms, OK_CODES } = require('./validate.js');
-const { LESSON } = require('./skeleton.js');
+const { LESSON, mdkBlocks } = require('./sequence.js');
 const { FORM_NAMES } = require('./plan.js');
 
 const PROMPTS = path.join(__dirname, '..', 'prompts');
 const tpl = (name, vars) => fs.readFileSync(path.join(PROMPTS, name + '.md'), 'utf8').replace(/\{\{(\w+)\}\}/g, (_, k) => (vars[k] !== undefined ? String(vars[k]) : ''));
 const nonEmpty = s => typeof s === 'string' && s.trim().length > 0;
-const sumH = a => (a || []).reduce((x, y) => x + (Number(y[1]) || 0), 0);
 
 function contextBlock(ctx) {
   const { fgos, content: c, project: pj } = ctx;
@@ -21,9 +20,9 @@ function contextBlock(ctx) {
     ...c.meta.pk.map(([k, n]) => `${k}. ${n}`),
     'Общие компетенции: ' + fgos.ok.map(([k, n]) => `${k} — ${n}`).join('; '),
     'Состав модуля по учебному плану:',
-    ...c.mdk.map(m => `${m.code} «${m.name}»: теория ${m.T} ч, практика ${m.P} ч${m.K ? `, курсовой проект ${m.K} ч` : ''}; ` + m.blocks.map(b => `${b.label} — ${b.hours} ч${b.form ? ` (${FORM_NAMES[b.form] || b.form})` : ''}`).join(', ')),
-    ...c.up.map(u => `${u.code} учебная практика: ${u.label} — ${u.hours} ч`),
-    ...c.pp.map(u => `${u.code} производственная практика: ${u.label} — ${u.hours} ч`),
+    ...c.mdk.map(m => `${m.code} «${m.name}» (${m.section}): теория ${m.T} ч, практика ${m.P} ч; ` + m.sems.map(b => `${b.label} — ${b.hours} ч${b.form ? ` (${FORM_NAMES[b.form] || b.form})` : ''}`).join(', ')),
+    ...c.up.map(u => `${u.code} учебная практика: ${u.label} — ${u.hours} ч${u.form ? ` (${FORM_NAMES[u.form] || u.form})` : ''}`),
+    ...c.pp.map(u => `${u.code} производственная практика: ${u.label} — ${u.hours} ч${u.form ? ` (${FORM_NAMES[u.form] || u.form})` : ' (аттестация не проводится, по окончании — отчёт по практике)'}`),
     `Экзамен по модулю: ${c.meta.exam_label}.`,
   ];
   const h = pj.hints || {};
@@ -38,88 +37,71 @@ function checkCodes(codes, pkList, where, E, needPk = true) {
   x.ok.forEach(k => { if (!OK_CODES.includes(k)) E(`${where}: неизвестный код ${k}`); });
 }
 
-function themeNames(m, uptoBlock = Infinity) {
-  return m.blocks.slice(0, uptoBlock).flatMap(b => (b.themes || []).map(t => t.name));
+// Темы ПОП, изученные к концу семестра semIdx
+function studiedThemes(m, semIdx) {
+  const { blocks } = mdkBlocks(m);
+  return [...new Set(blocks.filter(b => b.sem <= semIdx).flatMap(b => b.groups.map(g => `${g.theme.num} ${g.theme.name}`)))];
 }
 
-// Список всех этапов для текущего content
 function listStages(ctx) {
   const c = ctx.content;
+  const pop = ctx.pop || {};
   const pk = c.meta.pk.map(x => x[0]);
   const vars0 = { context: contextBlock(ctx), pm: c.meta.pm, pm_name: c.meta.pm_name, pk_codes: pk.join(', ') };
   const hints = ctx.project.hints || {};
   const S = [];
 
-  S.push({
-    id: 'program', title: 'Общая часть программы (навыки, умения, знания, критерии)',
-    prompt: () => tpl('program', { ...vars0,
-      op_list: ctx.plan.items.filter(i => /^ОП\.\d/.test(i.index)).map(i => `${i.index} «${i.name}»`).join('; '),
-      pm_list: ctx.plan.items.filter(i => /^ПМ\.\d/.test(i.index)).map(i => `${i.index} «${i.name}»`).join('; ') }),
+  c.mdk.forEach(m => S.push({
+    id: `themes:${m.code}`, title: `Теоретические занятия и коды компетенций по темам ПОП ${m.code}`,
+    prompt: () => tpl('themes', { ...vars0, mdk_code: m.code, mdk_name: m.name,
+      themes: m.themes.map(t => `${t.num} ${t.name}\n  Содержание: ${t.content.join(' ')}\n  Теоретических занятий: ${t.theory_count}\n  Практические работы: ${(t.works || []).map(w => `№ ${w.n}. ${w.title}`).join('; ') || 'нет'}`).join('\n') + ((hints.mdk || {})[m.code] ? `\nПожелания преподавателя: ${hints.mdk[m.code]}` : '') }),
     check: d => {
       const e = []; const E = x => e.push(x);
-      if (!nonEmpty(d.place_text)) E('нет place_text');
-      pk.forEach(k => { const r = (d.pk_results || {})[k] || {}; ['um', 'zn', 'nav'].forEach(x => { if ((r[x] || []).length < 2) E(`pk_results["${k}"].${x}: нужно 2–6 пунктов`); }); });
-      pk.forEach(k => { const v = (d.pk_criteria || {})[k]; if (!Array.isArray(v) || v.length !== 2 || !nonEmpty(v[0]) || !nonEmpty(v[1])) E(`pk_criteria["${k}"] должен быть ["критерий", "методы"]`); });
-      OK_CODES.forEach(k => { const v = (d.ok_criteria || {})[k]; if (!Array.isArray(v) || v.length !== 2 || !nonEmpty(v[0]) || !nonEmpty(v[1])) E(`ok_criteria["${k}"] должен быть ["показатель", "методы"]`); });
+      if (!Array.isArray(d.themes) || d.themes.length !== m.themes.length) return [`нужно ровно ${m.themes.length} тем в порядке ПОП`];
+      d.themes.forEach((th, i) => {
+        const t = m.themes[i]; const w = `${t.num} ${t.name}`;
+        if (!Array.isArray(th.theory) || th.theory.length !== t.theory_count) E(`${w}: нужно ровно ${t.theory_count} теоретических занятий`);
+        (th.theory || []).forEach(x => { if (!nonEmpty(x)) E(`${w}: пустое название занятия`); });
+        checkCodes(th.codes, pk, w, E);
+        if (!parseCodes(th.codes).ok.length) E(`${w}: в codes нет ОК`);
+      });
       return e;
     },
-    apply: d => { Object.assign(c.program, { place_text: d.place_text, prerequisites: d.prerequisites || [], next_modules: d.next_modules || [], pk_results: d.pk_results, pk_ps: d.pk_ps || {}, pk_criteria: d.pk_criteria, ok_criteria: d.ok_criteria }); },
-  });
-
-  c.mdk.forEach((m, mi) => m.blocks.forEach((b, bi) => {
-    const n = b.T / LESSON, P = b.P;
-    S.push({
-      id: `themes:${m.code}:${bi + 1}`, title: `Темы и занятия ${m.code}, ${b.label} (${b.hours} ч)`,
-      prompt: () => tpl('themes', { ...vars0, mdk_code: m.code, mdk_name: m.name, sem_label: b.label, n_theory: n, t_hours: b.T, p_hours: P, total: b.T + P,
-        exam_note: b.form ? `В конце семестра — ${FORM_NAMES[b.form] || b.form}.` : '',
-        previous: themeNames(m, bi).join('; ') || 'нет (это первый семестр МДК)',
-        mdk_hint: (hints.mdk || {})[m.code] ? `Пожелания преподавателя по МДК: ${hints.mdk[m.code]}` : '',
-        themes_hint: Math.max(2, Math.round((b.T + P) / 18)) }),
-      check: d => {
-        const e = []; const E = x => e.push(x);
-        if (!Array.isArray(d.themes) || !d.themes.length) return ['нет списка themes'];
-        let t = 0, p = 0;
-        d.themes.forEach((th, i) => {
-          const w = `тема ${i + 1} «${th.name || ''}»`;
-          if (!nonEmpty(th.name)) E(`${w}: нет name`);
-          if (!nonEmpty(th.summary) || th.summary.length < 40) E(`${w}: summary — 2–3 предложения краткого содержания`);
-          if (!Array.isArray(th.theory)) E(`${w}: theory должен быть массивом строк`); else t += th.theory.length;
-          if (!Array.isArray(th.practice) || !th.practice.length) E(`${w}: нужно хотя бы одно практическое занятие`);
-          (th.practice || []).forEach(x => { if (!Array.isArray(x) || !nonEmpty(x[0]) || !(x[1] > 0) || x[1] % LESSON) E(`${w}: практическое занятие ${JSON.stringify(x)} — нужен формат ["название", часы кратные 2]`); else p += x[1]; });
-          checkCodes(th.codes, pk, w, E);
-          if (!parseCodes(th.codes).ok.length) E(`${w}: в codes нет ОК`);
-        });
-        if (t !== n) E(`теоретических занятий ${t}, нужно ровно ${n}`);
-        if (p !== P) E(`практика суммарно ${p} ч, нужно ровно ${P} ч`);
-        return e;
-      },
-      apply: d => { b.themes = d.themes.map(th => ({ name: th.name, summary: th.summary, theory: th.theory, practice: th.practice.map(x => [x[0], Number(x[1])]), codes: th.codes })); },
-    });
+    apply: d => { d.themes.forEach((th, i) => { m.themes[i].theory = th.theory; m.themes[i].codes = th.codes; }); },
   }));
 
   c.mdk.filter(m => m.course_project).forEach(m => S.push({
     id: `course:${m.code}`, title: `Курсовой проект ${m.code} (${m.K} ч)`,
     prompt: () => tpl('course', { ...vars0, mdk_code: m.code, mdk_name: m.name, hours: m.K }),
-    check: d => { const e = []; if ((d.topics || []).length < 10) e.push('topics: нужно не меньше 10 тем'); if (sumH(d.stages) !== m.K) e.push(`stages: сумма ${sumH(d.stages)} ч, нужно ${m.K}`); (d.stages || []).forEach(s => { if (s[1] % LESSON) e.push(`этап «${s[0]}» не кратен 2 ч`); }); return e; },
+    check: d => { const e = []; const sum = (d.stages || []).reduce((a, x) => a + (Number(x[1]) || 0), 0); if ((d.topics || []).length < 10) e.push('topics: нужно не меньше 10 тем'); if (sum !== m.K) e.push(`stages: сумма ${sum} ч, нужно ${m.K}`); (d.stages || []).forEach(x => { if (x[1] % LESSON) e.push(`этап «${x[0]}» не кратен 2 ч`); }); return e; },
     apply: d => { m.course_project = { hours: m.K, topics: d.topics, stages: d.stages }; },
   }));
 
+  // виды работ УП из ПОП распределяются по семестрам практики подряд
+  const upWorks = pop.up_works || [];
+  const upSplit = (() => {
+    if (!c.up.length) return [];
+    const tot = c.up.reduce((a, u) => a + u.hours, 0); let k = 0;
+    return c.up.map((u, i) => { const n = i === c.up.length - 1 ? upWorks.length - k : Math.max(1, Math.round(upWorks.length * u.hours / tot)); const r = upWorks.slice(k, k + n); k += n; return r; });
+  })();
   c.up.forEach((u, ui) => S.push({
     id: `up:${ui + 1}`, title: `Учебная практика ${u.code}, ${u.label} (${u.hours} ч)`,
     prompt: () => tpl('up', { ...vars0, code: u.code, sem_label: u.label, hours: u.hours,
-      studied: c.mdk.flatMap(m => m.blocks.filter(b => b.sem <= u.sem).flatMap(b => b.themes.map(t => t.name))).join('; ') || 'см. состав модуля',
+      works: upSplit[ui].map(x => `«${x}»`).join('; ') || 'составь сам (в ПОП нет перечня)',
+      studied: c.mdk.flatMap(m => studiedThemes(m, u.sem)).join('; ') || 'см. состав модуля',
       up_hint: hints.up ? `Пожелания преподавателя: ${hints.up}` : '',
-      first_note: ui === 0 ? 'Первый вид работ — инструктаж по охране труда и организация рабочего места (codes — пустая строка).' : '',
-      last_note: u.form ? 'Последний вид работ — оформление отчёта и дифференцированный зачёт.' : 'Последний вид работ — оформление отчёта по практике.' }),
+      first_note: ui === 0 ? 'Первое задание первого вида работ — инструктаж по охране труда и организация рабочего места (2 ч).' : '',
+      last_note: u.form ? `Последнее задание — оформление отчёта по учебной практике и ${FORM_NAMES[u.form] || u.form}.` : 'Последнее задание — оформление отчёта по практике.' }),
     check: d => {
       const e = []; const E = x => e.push(x);
       if (!Array.isArray(d.works) || !d.works.length) return ['нет works'];
       let s = 0;
       d.works.forEach((w, i) => {
-        if (!nonEmpty(w.name)) E(`вид работ ${i + 1}: нет name`);
+        if (upSplit[ui].length && !upSplit[ui].includes(w.name)) E(`вид работ ${i + 1} «${w.name}»: название должно дословно совпадать с одним из: ${upSplit[ui].join(' | ')}`);
         (w.tasks || []).forEach(t => { if (!Array.isArray(t) || !nonEmpty(t[0]) || !(t[1] > 0) || t[1] % LESSON) E(`«${w.name}»: задание ${JSON.stringify(t)} — нужно ["название", часы кратные 2]`); else s += t[1]; });
         checkCodes(w.codes, pk, `«${w.name}»`, E, false);
       });
+      upSplit[ui].forEach(n => { if (!d.works.some(w => w.name === n)) E(`не включён вид работ «${n}»`); });
       if (s !== u.hours) E(`сумма часов ${s}, нужно ровно ${u.hours}`);
       return e;
     },
@@ -128,13 +110,20 @@ function listStages(ctx) {
 
   c.pp.forEach((u, ui) => S.push({
     id: `pp:${ui + 1}`, title: `Производственная практика ${u.code}, ${u.label} (${u.hours} ч)`,
-    prompt: () => tpl('pp', { ...vars0, code: u.code, sem_label: u.label, hours: u.hours, days: u.days }),
+    prompt: () => tpl('pp', { ...vars0, code: u.code, sem_label: u.label, hours: u.hours, days: u.days,
+      works: (pop.pp_works || []).map(x => `«${x}»`).join('; '),
+      final_note: u.form ? `последний день — оформление отчёта и ${FORM_NAMES[u.form] || u.form}.` : 'последний день — оформление отчёта по практике (зачёт/аттестацию НЕ указывать — она не проводится).' }),
     check: d => {
       const e = []; const E = x => e.push(x);
       if (!Array.isArray(d.works) || !d.works.length) return ['нет works'];
       const days = d.works.reduce((a, w) => a + (w.days || []).length, 0);
       if (days !== u.days) E(`всего дней ${days}, нужно ровно ${u.days}`);
-      d.works.forEach(w => { if (!nonEmpty(w.name)) E('вид работ без name'); (w.days || []).forEach(x => { if (!nonEmpty(x)) E(`пустой день в «${w.name}»`); }); checkCodes(w.codes, pk, `«${w.name}»`, E, false); });
+      d.works.forEach(w => {
+        if ((pop.pp_works || []).length && !pop.pp_works.includes(w.name)) E(`вид работ «${w.name}» не совпадает дословно с ПОП`);
+        (w.days || []).forEach(x => { if (!nonEmpty(x)) E(`пустой день в «${w.name}»`); if (!u.form && /зач[её]т/i.test(x)) E(`«${x}»: зачёт по производственной практике не проводится`); });
+        checkCodes(w.codes, pk, `«${w.name}»`, E, false);
+      });
+      (pop.pp_works || []).forEach(n => { if (!d.works.some(w => w.name === n)) E(`не включён вид работ ПОП «${n}»`); });
       const seen = new Set(d.works.flatMap(w => parseCodes(w.codes).pk));
       pk.forEach(k => { if (!seen.has(k)) E(`${k} не встречается ни в одном виде работ`); });
       return e;
@@ -143,14 +132,20 @@ function listStages(ctx) {
   }));
 
   S.push({
-    id: 'conditions', title: 'Условия реализации (помещения, ПО, литература)',
-    prompt: () => tpl('conditions', vars0),
-    check: d => { const e = []; if (!(d.rooms || []).length) e.push('нет rooms'); (d.rooms || []).forEach(r => { if (!nonEmpty(r.name) || !nonEmpty(r.purpose) || !(r.equipment || []).length) e.push(`помещение ${JSON.stringify(r.name)}: нужны name, purpose, equipment`); }); if ((d.literature_main || []).length < 2) e.push('literature_main: не меньше 2'); return e; },
-    apply: d => { c.program.conditions = { rooms: d.rooms, software: d.software || [], literature_main: d.literature_main, literature_add: d.literature_add || [] }; },
+    id: 'program', title: 'Оснащение, ПО и методы формирования ЛР',
+    prompt: () => tpl('program', { ...vars0, works: c.mdk.map(m => `${m.code}: ` + m.themes.flatMap(t => (t.works || []).map(w => `№ ${w.n} ${w.title}`)).join('; ')).join('\n') }),
+    check: d => {
+      const e = [];
+      const eq = d.equipment || {};
+      ['cabinet', 'lab', 'workshop'].forEach(k => { if (!(eq[k] || []).length) e.push(`equipment.${k}: пусто`); });
+      [...OK_CODES, 'none'].forEach(k => { if (!nonEmpty((d.lr_methods || {})[k])) e.push(`lr_methods["${k}"]: пусто`); });
+      return e;
+    },
+    apply: d => { c.program.conditions = { equipment: d.equipment, software: d.software || [] }; c.program.lr_methods = d.lr_methods; },
   });
 
   c.mdk.forEach(m => {
-    const themes = () => m.blocks.flatMap(b => b.themes.map(t => t.name)).join('; ');
+    const themes = () => m.themes.map((t, i) => `${i + 1}) ${t.num} ${t.name}`).join('; ');
     const N = Math.max(15, Math.min(25, Math.round((m.T + m.P) / 8)));
     S.push({
       id: `tests:${m.code}`, title: `Тест по ${m.code} (${N} вопросов)`,
@@ -158,18 +153,18 @@ function listStages(ctx) {
       check: d => {
         const e = []; const T = d.tests || [];
         if (T.length !== N) e.push(`вопросов ${T.length}, нужно ровно ${N}`);
-        T.forEach((q, i) => { if (!nonEmpty(q.q)) e.push(`вопрос ${i + 1}: нет текста`); if (!Array.isArray(q.options) || q.options.length !== 4 || new Set(q.options).size !== 4) e.push(`вопрос ${i + 1}: нужно 4 разных варианта`); if (!Number.isInteger(q.answer) || q.answer < 0 || q.answer > 3) e.push(`вопрос ${i + 1}: answer 0–3`); });
+        T.forEach((q, i) => { if (!nonEmpty(q.q)) e.push(`вопрос ${i + 1}: нет текста`); if (!Array.isArray(q.options) || q.options.length !== 4 || new Set(q.options).size !== 4) e.push(`вопрос ${i + 1}: нужно 4 разных варианта`); if (!Number.isInteger(q.answer) || q.answer < 0 || q.answer > 3) e.push(`вопрос ${i + 1}: answer 0–3`); if (!Number.isInteger(q.t) || q.t < 1 || q.t > m.themes.length) e.push(`вопрос ${i + 1}: t — порядковый номер темы 1–${m.themes.length}`); });
         const cnt = [0, 0, 0, 0]; T.forEach(q => { if (q.answer >= 0 && q.answer <= 3) cnt[q.answer]++; });
         if (T.length && Math.max(...cnt) > Math.ceil(T.length * 0.45)) e.push(`правильные ответы распределены неравномерно (${cnt.join('/')}) — перемешай варианты`);
         return e;
       },
-      apply: d => { c.fos.tests[m.code] = d.tests.map(q => ({ q: q.q, options: q.options, answer: q.answer })); },
+      apply: d => { c.fos.tests[m.code] = d.tests.map(q => ({ q: q.q, options: q.options, answer: q.answer, t: q.t })); },
     });
     const f = examForms(m);
     if (f['Э'] || f['ДЗ'] || f['З']) {
       const nq = f['Э'] ? 25 : 20, nt = f['Э'] ? 12 : 10;
       S.push({
-        id: `exam:${m.code}`, title: `Вопросы и задания к промежуточной аттестации ${m.code}`,
+        id: `exam:${m.code}`, title: `Вопросы и задачи к экзамену ${m.code}`,
         prompt: () => tpl('exam', { ...vars0, mdk_code: m.code, mdk_name: m.name, themes: themes(), forms: Object.keys(f).map(x => FORM_NAMES[x] || x).join(', '), nq, nt }),
         check: d => { const e = []; if ((d.questions || []).length < nq) e.push(`questions: нужно не меньше ${nq}`); if ((d.tasks || []).length < nt) e.push(`tasks: нужно не меньше ${nt}`); return e; },
         apply: d => { c.fos.exams[m.code] = { questions: d.questions, tasks: d.tasks }; },
@@ -177,13 +172,22 @@ function listStages(ctx) {
     }
     if (f['ДР'] || f['КР']) {
       const lbl = (f['ДР'] || f['КР'])[0];
+      const semIdx = m.sems.find(b => b.label === lbl).sem;
       S.push({
-        id: `cw:${m.code}`, title: `Контрольная работа ${m.code}`,
-        prompt: () => { const semIdx = m.blocks.find(b => b.label === lbl).sem; return tpl('cw', { ...vars0, mdk_code: m.code, mdk_name: m.name, sem_label: lbl, themes: m.blocks.filter(b => b.sem <= semIdx).flatMap(b => b.themes.map(t => t.name)).join('; ') }); },
-        check: d => { const e = []; if ((d.variants || []).length !== 2) e.push('нужно ровно 2 варианта'); (d.variants || []).forEach((v, i) => { if ((v.tasks || []).length < 2) e.push(`вариант ${i + 1}: не меньше 2 заданий`); if (!nonEmpty(v.answer)) e.push(`вариант ${i + 1}: нет answer`); }); return e; },
+        id: `cw:${m.code}`, title: `Контрольная работа ${m.code} (4 варианта)`,
+        prompt: () => tpl('cw', { ...vars0, mdk_code: m.code, mdk_name: m.name, sem_label: lbl, themes: studiedThemes(m, semIdx).join('; ') }),
+        check: d => { const e = []; if ((d.variants || []).length < 3) e.push('нужно 4 варианта (не меньше 3)'); (d.variants || []).forEach((v, i) => { if ((v.tasks || []).length < 2) e.push(`вариант ${i + 1}: не меньше 2 заданий`); if (!nonEmpty(v.answer)) e.push(`вариант ${i + 1}: нет answer`); }); return e; },
         apply: d => { c.fos.control_works[m.code] = { minutes: d.minutes || 90, variants: d.variants }; },
       });
     }
+  });
+
+  const upF = c.up.find(u => u.form);
+  if (upF) S.push({
+    id: 'upq', title: `Вопросы к зачёту по учебной практике ${upF.code}`,
+    prompt: () => tpl('upq', { ...vars0, code: upF.code, works: c.up.flatMap(u => u.works.map(w => w.name)).join('; ') }),
+    check: d => ((d.questions || []).length < 15 ? ['нужно 15–20 вопросов'] : []),
+    apply: d => { c.fos.up_questions = d.questions; },
   });
 
   S.push({
@@ -200,9 +204,10 @@ function listStages(ctx) {
       pk.forEach(k => { if (!(d.checklist || []).some(r => r[0] === k)) E(`checklist: нет критериев по ${k}`); });
       if ((d.protocol_checks || []).length < 5) E('protocol_checks: нужно 5–8 строк');
       if (!nonEmpty(d.conditions)) E('нет conditions');
+      if (/портфолио/i.test(JSON.stringify(d))) E('портфолио не используется — убери все упоминания');
       return e;
     },
-    apply: d => { c.fos.module_exam = { parts: d.parts, conditions: d.conditions, portfolio: d.portfolio || '', variants: d.variants, checklist: d.checklist.map(r => [r[0], r[1], Number(r[2])]), protocol_title: d.protocol_title || '', protocol_checks: d.protocol_checks }; },
+    apply: d => { c.fos.module_exam = { parts: d.parts, conditions: d.conditions, variants: d.variants, checklist: d.checklist.map(r => [r[0], r[1], Number(r[2])]), protocol_title: d.protocol_title || '', protocol_checks: d.protocol_checks }; },
   });
   return S;
 }

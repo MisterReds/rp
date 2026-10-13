@@ -1,7 +1,8 @@
 // Строгая проверка наполнения перед сборкой документа.
 // Ошибки (errors) блокируют сборку, предупреждения (warnings) — нет.
 'use strict';
-const { LESSON, PP_DAY } = require('./skeleton.js');
+const { LESSON, mdkBlocks } = require('./sequence.js');
+const PP_DAY = 6;
 
 const OK_CODES = ['ОК 01', 'ОК 02', 'ОК 03', 'ОК 04', 'ОК 05', 'ОК 06', 'ОК 07', 'ОК 08', 'ОК 09'];
 const nonEmpty = s => typeof s === 'string' && s.trim().length > 0;
@@ -15,101 +16,110 @@ function parseCodes(s) {
   return { pk, ok };
 }
 
+// Формы аттестации МДК по семестрам: {Э: ['2 курс, 1 семестр'], ...}
 function examForms(mdk) {
   const f = {};
-  (mdk.blocks || []).forEach(b => { if (b.form) (f[b.form] = f[b.form] || []).push(b.label); });
+  (mdk.sems || []).forEach(b => { if (b.form) (f[b.form] = f[b.form] || []).push(b.label); });
   return f;
-}
-
-function validateThemesBlock(mdk, b, pkList, E, W, path) {
-  let t = 0, p = 0;
-  if (!Array.isArray(b.themes) || !b.themes.length) { E(`${path}: нет тем`); return; }
-  b.themes.forEach((th, k) => {
-    const tp = `${path} → тема ${k + 1} «${th.name || '?'}»`;
-    if (!nonEmpty(th.name)) E(`${tp}: нет названия темы`);
-    if (!nonEmpty(th.summary) || th.summary.length < 40) E(`${tp}: нет краткого содержания темы (summary, не короче 40 символов)`);
-    if (!Array.isArray(th.theory)) E(`${tp}: theory должен быть списком названий занятий`);
-    if (!Array.isArray(th.practice)) E(`${tp}: practice должен быть списком [название, часы]`);
-    (th.theory || []).forEach((x, i) => { if (!nonEmpty(x)) E(`${tp}: пустое теоретическое занятие №${i + 1}`); });
-    (th.practice || []).forEach((x, i) => {
-      if (!Array.isArray(x) || !nonEmpty(x[0])) E(`${tp}: практическое занятие №${i + 1} должно быть [название, часы]`);
-      else if (!(x[1] > 0) || x[1] % LESSON) E(`${tp}: «${x[0]}» — ${x[1]} ч, должно быть кратно ${LESSON}`);
-    });
-    if (th.summary && (th.theory || []).some(x => x === th.summary)) E(`${tp}: краткое содержание совпадает с названием занятия`);
-    const c = parseCodes(th.codes);
-    if (!c.pk.length) E(`${tp}: в codes нет ни одной ПК`);
-    if (!c.ok.length) E(`${tp}: в codes нет ни одной ОК`);
-    c.pk.forEach(x => { if (!pkList.includes(x)) E(`${tp}: ${x} не относится к модулю`); });
-    c.ok.forEach(x => { if (!OK_CODES.includes(x)) E(`${tp}: неизвестный код ${x}`); });
-    t += (th.theory || []).length * LESSON; p += sumH(th.practice);
-  });
-  const need = b.hours - (b.K || 0);
-  if (t + p !== need) E(`${path}: занятия дают ${t + p} ч (теория ${t} + практика ${p}), а по плану в семестре ${need} ч`);
-  return { t, p };
 }
 
 function validate(content, opts = {}) {
   const errors = [], warnings = [];
   const E = m => errors.push(m), W = m => warnings.push(m);
   const pkList = (content.meta.pk || []).map(x => x[0]);
+  const pop = opts.pop;
   const stages = opts.stages || ['mdk', 'up', 'pp', 'program', 'fos'];
 
   if (stages.includes('mdk')) {
     const pkSeen = new Set();
     content.mdk.forEach(m => {
+      const sec = pop && pop.sections.find(s => s.mdk === m.code);
+      if (pop && sec) {
+        if (m.themes.length !== sec.themes.length) E(`${m.code}: тем ${m.themes.length}, в ПОП ${sec.themes.length} — темы ПОП нельзя добавлять и удалять`);
+        sec.themes.forEach((pt, i) => {
+          const t = m.themes[i]; if (!t) return;
+          if (t.name !== pt.name || t.num !== pt.num) E(`${m.code}: тема ${i + 1} «${t.num} ${t.name}» не совпадает с ПОП «${pt.num} ${pt.name}»`);
+          if (JSON.stringify(t.content) !== JSON.stringify(pt.content)) E(`${m.code}, ${pt.num} ${pt.name}: содержание темы изменено относительно ПОП`);
+          pt.labs.forEach(l => { const w = (t.works || []).find(x => x.n === l.n); if (!w || w.title !== l.title) E(`${m.code}, ${pt.num}: нет практической работы № ${l.n} ПОП «${l.title.slice(0, 60)}…» (название менять нельзя)`); });
+        });
+      }
       let T = 0, P = 0;
-      m.blocks.forEach(b => {
-        const r = validateThemesBlock(m, b, pkList, E, W, `${m.code}, ${b.label}`);
-        if (r) { T += r.t; P += r.p; }
-        (b.themes || []).forEach(th => parseCodes(th.codes).pk.forEach(x => pkSeen.add(x)));
+      const nums = [];
+      m.themes.forEach((th, k) => {
+        const tp = `${m.code} → ${th.num || ''} «${th.name || '?'}»`;
+        if (!nonEmpty(th.name)) E(`${tp}: нет названия темы`);
+        if (!Array.isArray(th.content) || !th.content.length) E(`${tp}: нет содержания темы`);
+        if (!Array.isArray(th.theory)) E(`${tp}: theory должен быть списком названий занятий`);
+        (th.theory || []).forEach((x, i) => { if (!nonEmpty(x)) E(`${tp}: пустое теоретическое занятие №${i + 1}`); });
+        if (th.theory_count !== undefined && (th.theory || []).length !== th.theory_count) E(`${tp}: теоретических занятий ${(th.theory || []).length}, по распределению нужно ${th.theory_count}`);
+        (th.works || []).forEach(w => {
+          if (!nonEmpty(w.title)) E(`${tp}: практическая работа без названия`);
+          if (!Number.isInteger(w.pairs) || w.pairs < 1) E(`${tp}: у практической работы № ${w.n} должно быть целое число пар ≥ 1`);
+          nums.push(w.n); P += (w.pairs || 0) * LESSON;
+        });
+        if (!(th.theory || []).length && !(th.works || []).length) E(`${tp}: в теме нет занятий`);
+        const c = parseCodes(th.codes);
+        if (!c.pk.length) E(`${tp}: в codes нет ни одной ПК`);
+        if (!c.ok.length) E(`${tp}: в codes нет ни одной ОК`);
+        c.pk.forEach(x => { if (!pkList.includes(x)) E(`${tp}: ${x} не относится к модулю`); pkSeen.add(x); });
+        c.ok.forEach(x => { if (!OK_CODES.includes(x)) E(`${tp}: неизвестный код ${x}`); });
+        T += (th.theory || []).length * LESSON;
       });
+      nums.forEach((n, i) => { if (n !== i + 1) E(`${m.code}: практические работы должны идти по порядку с № 1 (найдено № ${n} на месте ${i + 1})`); });
       if (T !== m.T) E(`${m.code}: теория по занятиям ${T} ч, по плану ${m.T} ч`);
       if (P !== m.P) E(`${m.code}: практика по занятиям ${P} ч, по плану ${m.P} ч`);
-      const titles = m.blocks.flatMap(b => (b.themes || []).flatMap(th => [...(th.theory || []), ...(th.practice || []).map(x => x[0])]));
+      const b = mdkBlocks(m);
+      if (b.total * LESSON !== m.sems.reduce((a, s) => a + s.hours - (s.K || 0), 0)) E(`${m.code}: занятия (${b.total * LESSON} ч) не совпадают с часами семестров`);
+      const titles = m.themes.flatMap(th => th.theory || []);
       const dup = titles.filter((x, i) => titles.indexOf(x) !== i);
       if (dup.length) W(`${m.code}: повторяются названия занятий: ${[...new Set(dup)].slice(0, 5).join('; ')}`);
       if (m.course_project) {
         const cp = m.course_project;
         if ((cp.topics || []).length < 10) E(`${m.code}: курсовой проект — нужно не меньше 10 тем`);
         if (sumH(cp.stages) !== cp.hours) E(`${m.code}: этапы курсового проекта дают ${sumH(cp.stages)} ч, по плану ${cp.hours} ч`);
-        (cp.stages || []).forEach(s => { if (s[1] % LESSON) E(`${m.code}: этап «${s[0]}» не кратен ${LESSON} ч`); });
       }
     });
-    pkList.forEach(x => { if (!pkSeen.has(x)) W(`${x} не встречается ни в одной теме МДК (проверьте, что она формируется хотя бы на практике)`); });
+    pkList.forEach(x => { if (!pkSeen.has(x)) W(`${x} не встречается ни в одной теме МДК (формируется на практике)`); });
   }
 
-  if (stages.includes('up')) content.up.forEach(u => {
-    const path = `${u.code}, ${u.label}`;
-    if (!u.works || !u.works.length) { E(`${path}: нет видов работ`); return; }
-    let s = 0;
-    u.works.forEach((w, i) => {
-      if (!nonEmpty(w.name)) E(`${path}: вид работ №${i + 1} без названия`);
-      (w.tasks || []).forEach(t => { if (!(t[1] > 0) || t[1] % LESSON) E(`${path}: «${t[0]}» — ${t[1]} ч, должно быть кратно ${LESSON}`); });
-      parseCodes(w.codes).pk.forEach(x => { if (!pkList.includes(x)) E(`${path}: ${x} не относится к модулю`); });
-      s += sumH(w.tasks);
+  if (stages.includes('up')) {
+    content.up.forEach(u => {
+      const path = `${u.code}, ${u.label}`;
+      if (!u.works || !u.works.length) { E(`${path}: нет видов работ`); return; }
+      let s = 0;
+      u.works.forEach((w, i) => {
+        if (!nonEmpty(w.name)) E(`${path}: вид работ №${i + 1} без названия`);
+        if (pop && pop.up_works && !pop.up_works.includes(w.name)) E(`${path}: вид работ «${w.name}» отсутствует в ПОП (названия видов работ берутся из ПОП без изменений)`);
+        (w.tasks || []).forEach(t => { if (!(t[1] > 0) || t[1] % LESSON) E(`${path}: «${t[0]}» — ${t[1]} ч, должно быть кратно ${LESSON}`); });
+        parseCodes(w.codes).pk.forEach(x => { if (!pkList.includes(x)) E(`${path}: ${x} не относится к модулю`); });
+        s += sumH(w.tasks);
+      });
+      if (s !== u.hours) E(`${path}: занятия дают ${s} ч, по плану ${u.hours} ч`);
     });
-    if (s !== u.hours) E(`${path}: занятия дают ${s} ч, по плану ${u.hours} ч`);
-  });
+    if (pop && pop.up_works && content.up.length) { const used = content.up.flatMap(u => u.works.map(w => w.name)); pop.up_works.forEach(n => { if (!used.includes(n)) E(`Учебная практика: не включён вид работ ПОП «${n}»`); }); }
+  }
 
-  if (stages.includes('pp')) content.pp.forEach(u => {
-    const path = `${u.code}, ${u.label}`;
-    if (!u.works || !u.works.length) { E(`${path}: нет видов работ`); return; }
-    const days = u.works.reduce((a, w) => a + (w.days || []).length, 0);
-    if (days * PP_DAY !== u.hours) E(`${path}: ${days} дн. × ${PP_DAY} ч = ${days * PP_DAY} ч, по плану ${u.hours} ч`);
-    u.works.forEach(w => { (w.days || []).forEach(d => { if (!nonEmpty(d)) E(`${path}: пустой день в «${w.name}»`); }); parseCodes(w.codes).pk.forEach(x => { if (!pkList.includes(x)) E(`${path}: ${x} не относится к модулю`); }); });
-  });
+  if (stages.includes('pp')) {
+    content.pp.forEach(u => {
+      const path = `${u.code}, ${u.label}`;
+      if (!u.works || !u.works.length) { E(`${path}: нет видов работ`); return; }
+      const days = u.works.reduce((a, w) => a + (w.days || []).length, 0);
+      if (days * PP_DAY !== u.hours) E(`${path}: ${days} дн. × ${PP_DAY} ч = ${days * PP_DAY} ч, по плану ${u.hours} ч`);
+      u.works.forEach(w => {
+        if (pop && pop.pp_works && !pop.pp_works.includes(w.name)) E(`${path}: вид работ «${w.name}» отсутствует в ПОП`);
+        (w.days || []).forEach(d => { if (!nonEmpty(d)) E(`${path}: пустой день в «${w.name}»`); if (!u.form && /зач[её]т/i.test(d)) E(`${path}: аттестация по практике не предусмотрена, а в дне «${d}» указан зачёт`); });
+        parseCodes(w.codes).pk.forEach(x => { if (!pkList.includes(x)) E(`${path}: ${x} не относится к модулю`); });
+      });
+    });
+    if (pop && pop.pp_works && content.pp.length) { const used = content.pp.flatMap(u => u.works.map(w => w.name)); pop.pp_works.forEach(n => { if (!used.includes(n)) E(`Производственная практика: не включён вид работ ПОП «${n}»`); }); }
+  }
 
   if (stages.includes('program')) {
     const pr = content.program;
-    pkList.forEach(x => { const r = (pr.pk_results || {})[x] || {}; ['um', 'zn', 'nav'].forEach(k => { if ((r[k] || []).length < 2) E(`program.pk_results["${x}"].${k}: нужно не меньше 2 пунктов (уметь / знать / владеть навыками)`); }); });
-    pkList.forEach(x => { const c = pr.pk_criteria[x]; if (!c || !nonEmpty(c[0]) || !nonEmpty(c[1])) E(`program.pk_criteria["${x}"]: нужны [критерий, методы оценки]`); });
-    OK_CODES.forEach(x => { const c = pr.ok_criteria[x]; if (!c || !nonEmpty(c[0]) || !nonEmpty(c[1])) E(`program.ok_criteria["${x}"]: нужны [показатель, методы оценки]`); });
-    if (!nonEmpty(pr.place_text)) E('program.place_text: нет текста о месте модуля');
     const cnd = pr.conditions || {};
-    if (!(cnd.rooms || []).length) E('program.conditions.rooms: нет помещений');
+    if (!pop) E('Не подключён файл ПОП (project.json → pop): результаты, критерии, помещения и литература берутся из ПОП');
     if (!(cnd.software || []).length) W('program.conditions.software: пусто');
-    if ((cnd.literature_main || []).length < 2) E('program.conditions.literature_main: нужно не меньше 2 изданий');
-    W('Литературу (program.conditions.literature_*) обязательно сверить с фондом библиотеки и ЭБС: нейросеть может ошибаться в выходных данных.');
+    if (!Object.keys(pr.lr_methods || {}).length) E('program.lr_methods: нет методов формирования ЛР (п. 4.2)');
   }
 
   if (stages.includes('fos')) {
@@ -125,7 +135,7 @@ function validate(content, opts = {}) {
         else if (new Set(q.options).size !== 4) E(`${p}: варианты повторяются`);
         if (!Number.isInteger(q.answer) || q.answer < 0 || q.answer > 3) E(`${p}: answer должен быть 0–3`); else cnt[q.answer]++;
       });
-      if (tests.length && Math.max(...cnt) / tests.length > 0.6) W(`fos.tests["${m.code}"]: больше 60 % правильных ответов под одной буквой — перемешайте варианты`);
+      if (tests.length && Math.max(...cnt) / tests.length > 0.45) W(`fos.tests["${m.code}"]: больше 45 % правильных ответов под одной буквой — перемешайте варианты`);
       const forms = examForms(m);
       if (forms['Э'] || forms['ДЗ'] || forms['З']) {
         const ex = f.exams[m.code] || {};
@@ -135,10 +145,11 @@ function validate(content, opts = {}) {
       }
       if (forms['ДР'] || forms['КР']) {
         const cw = f.control_works[m.code];
-        if (!cw || (cw.variants || []).length < 2) E(`fos.control_works["${m.code}"]: нужно не меньше 2 вариантов контрольной работы`);
+        if (!cw || (cw.variants || []).length < 3) E(`fos.control_works["${m.code}"]: нужно не меньше 3 вариантов контрольной работы (шаблон СПЭТ: 3–4 варианта)`);
         else cw.variants.forEach((v, i) => { if ((v.tasks || []).length < 2) E(`fos.control_works["${m.code}"] вариант ${i + 1}: нужно не меньше 2 заданий`); if (!nonEmpty(v.answer)) W(`fos.control_works["${m.code}"] вариант ${i + 1}: нет эталона ответа`); });
       }
     });
+    if (content.up.some(u => u.form === 'ДЗ') && (f.up_questions || []).length < 10) E('fos.up_questions: нужно не меньше 10 вопросов к дифференцированному зачёту по учебной практике');
     const me = f.module_exam;
     const covered = new Set((me.parts || []).flatMap(p => p.pk || []));
     pkList.forEach(x => { if (!covered.has(x)) E(`fos.module_exam.parts: ${x} не проверяется на экзамене по модулю`); });
@@ -149,6 +160,7 @@ function validate(content, opts = {}) {
     pkList.forEach(x => { if (!(me.checklist || []).some(r => r[0] === x)) E(`fos.module_exam.checklist: нет критериев по ${x}`); });
     if ((me.protocol_checks || []).length < 3) E('fos.module_exam.protocol_checks: нужно не меньше 3 проверок');
     if (!nonEmpty(me.conditions)) E('fos.module_exam.conditions: нет условий проведения');
+    if (/портфолио/i.test(JSON.stringify(me))) E('fos.module_exam: портфолио не используется — уберите упоминания портфолио');
   }
   return { errors, warnings };
 }
