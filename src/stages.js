@@ -58,12 +58,12 @@ function listStages(ctx) {
     check: d => {
       const e = []; const E = x => e.push(x);
       if (!nonEmpty(d.place_text)) E('нет place_text');
-      ['nav', 'um', 'zn'].forEach(k => { if (!d.skills || (d.skills[k] || []).length < 5) E(`skills.${k}: нужно не меньше 5 пунктов`); });
+      pk.forEach(k => { const r = (d.pk_results || {})[k] || {}; ['um', 'zn', 'nav'].forEach(x => { if ((r[x] || []).length < 2) E(`pk_results["${k}"].${x}: нужно 2–6 пунктов`); }); });
       pk.forEach(k => { const v = (d.pk_criteria || {})[k]; if (!Array.isArray(v) || v.length !== 2 || !nonEmpty(v[0]) || !nonEmpty(v[1])) E(`pk_criteria["${k}"] должен быть ["критерий", "методы"]`); });
       OK_CODES.forEach(k => { const v = (d.ok_criteria || {})[k]; if (!Array.isArray(v) || v.length !== 2 || !nonEmpty(v[0]) || !nonEmpty(v[1])) E(`ok_criteria["${k}"] должен быть ["показатель", "методы"]`); });
       return e;
     },
-    apply: d => { Object.assign(c.program, { place_text: d.place_text, prerequisites: d.prerequisites || [], next_modules: d.next_modules || [], skills: d.skills, pk_ps: d.pk_ps || {}, pk_criteria: d.pk_criteria, ok_criteria: d.ok_criteria }); },
+    apply: d => { Object.assign(c.program, { place_text: d.place_text, prerequisites: d.prerequisites || [], next_modules: d.next_modules || [], pk_results: d.pk_results, pk_ps: d.pk_ps || {}, pk_criteria: d.pk_criteria, ok_criteria: d.ok_criteria }); },
   });
 
   c.mdk.forEach((m, mi) => m.blocks.forEach((b, bi) => {

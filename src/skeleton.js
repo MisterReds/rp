@@ -77,7 +77,7 @@ function buildSkeleton(plan, project, fgos) {
         pk: mod.pk,
       },
       mdk, up, pp,
-      program: { place_text: '', prerequisites: [], next_modules: [], skills: { nav: [], um: [], zn: [] }, pk_ps: {}, pk_criteria: {}, ok_criteria: {}, conditions: { rooms: [], software: [], literature_main: [], literature_add: [] } },
+      program: { place_text: '', prerequisites: [], next_modules: [], pk_results: {}, pk_ps: {}, pk_criteria: {}, ok_criteria: {}, conditions: { rooms: [], software: [], literature_main: [], literature_add: [] } },
       fos: { tests: {}, exams: {}, control_works: {}, module_exam: { variants: [], checklist: [], protocol_checks: [], conditions: '', portfolio: '' } },
     },
     errors,

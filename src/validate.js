@@ -101,7 +101,7 @@ function validate(content, opts = {}) {
 
   if (stages.includes('program')) {
     const pr = content.program;
-    ['nav', 'um', 'zn'].forEach(k => { if ((pr.skills[k] || []).length < 3) E(`program.skills.${k}: нужно не меньше 3 пунктов`); });
+    pkList.forEach(x => { const r = (pr.pk_results || {})[x] || {}; ['um', 'zn', 'nav'].forEach(k => { if ((r[k] || []).length < 2) E(`program.pk_results["${x}"].${k}: нужно не меньше 2 пунктов (уметь / знать / владеть навыками)`); }); });
     pkList.forEach(x => { const c = pr.pk_criteria[x]; if (!c || !nonEmpty(c[0]) || !nonEmpty(c[1])) E(`program.pk_criteria["${x}"]: нужны [критерий, методы оценки]`); });
     OK_CODES.forEach(x => { const c = pr.ok_criteria[x]; if (!c || !nonEmpty(c[0]) || !nonEmpty(c[1])) E(`program.ok_criteria["${x}"]: нужны [показатель, методы оценки]`); });
     if (!nonEmpty(pr.place_text)) E('program.place_text: нет текста о месте модуля');
