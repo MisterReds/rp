@@ -44,9 +44,12 @@ function buildDocument(ctx, pages = {}) {
   const pkCodes = PK.map(x => x[0]);
   const OK = fgos.ok;
   const LR = vosp.lr;
-  const okLrMod = vosp.ok_lr_module || vosp.ok_lr;
+  // По умолчанию — все ЛР, соотнесённые с ОК в программе воспитания; подмножество — только если в project.json "lr_subset": true
+  const okLrMod = (pj.lr_subset && vosp.ok_lr_module) ? vosp.ok_lr_module : vosp.ok_lr;
   const lrFromOk = oks => uniq(oks.flatMap(o => okLrMod[o] || [])).sort((a, b) => a - b);
   const LR_MOD = lrFromOk(OK_CODES);
+  const LR_ALL = Object.keys(LR).map(Number).sort((a, b) => a - b);
+  const LR_FREE = LR_ALL.filter(n => !LR_MOD.includes(n));
   const lrStr = arr => (arr.length ? 'ЛР ' + arr.join(', ') : '');
   const pmTitle = `${c.meta.pm} ${c.meta.pm_name}`;
   const allLessons = [];
@@ -173,10 +176,11 @@ function buildDocument(ctx, pages = {}) {
     pkTable,
     h3('1.1.3. Личностные результаты'),
     p(`Освоение модуля обеспечивает достижение личностных результатов (целевых ориентиров воспитания), установленных документом: ${vosp.title}. Соответствие общих компетенций и личностных результатов принято по документу «${vosp.source_table}».`, { after: 120 }),
-    table(wLR, [hdr(['ОК', 'Личностные результаты по программе воспитания', 'Формируются в модуле'], wLR),
-      ...OK_CODES.map(o => new TableRow({ children: [cell(o, wLR[0]), cell(lrStr(vosp.ok_lr[o] || []), wLR[1]), cell(lrStr(okLrMod[o] || []), wLR[2])] }))]),
-    p('Личностные результаты, формируемые в модуле:', { before: 200, after: 120, keepNext: true }),
-    table(w2, [hdr(['Код', 'Личностные результаты реализации программы воспитания (дескрипторы)'], w2), ...LR_MOD.map(n => new TableRow({ children: [cell('ЛР ' + n, w2[0]), cell(LR[n], w2[1])] }))]),
+    table(widths(P_W, [25, 0], 1), [hdr(['ОК', 'Личностные результаты (целевые ориентиры воспитания)'], widths(P_W, [25, 0], 1)),
+      ...OK_CODES.map(o => new TableRow({ children: [cell(o, mm(25)), cell(lrStr(okLrMod[o] || []), P_W - mm(25))] })),
+      ...(LR_FREE.length ? [new TableRow({ children: [cell('Без привязки к ОК', mm(25)), cell(lrStr(LR_FREE) + ' — формируются в ходе учебных занятий, практики и воспитательной работы', P_W - mm(25))] })] : [])]),
+    p('Перечень личностных результатов, формируемых в модуле:', { before: 200, after: 120, keepNext: true }),
+    table(w2, [hdr(['Код', 'Личностные результаты реализации программы воспитания (дескрипторы)'], w2), ...LR_ALL.map(n => new TableRow({ children: [cell('ЛР ' + n, w2[0]), cell(LR[n], w2[1])] }))]),
     h2('1.2. Планируемые результаты освоения профессионального модуля'),
     p('Результаты освоения профессионального модуля соотносятся с планируемыми результатами освоения образовательной программы, представленными в матрице компетенций выпускника (п. 4.3 ПОП).'),
     p('В результате освоения профессионального модуля обучающийся должен:', { after: 120, keepNext: true }),
