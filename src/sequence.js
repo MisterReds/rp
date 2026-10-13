@@ -37,6 +37,9 @@ function themeLessons(th) {
 // Разбить занятия МДК по семестрам учебного плана. Тема, не уместившаяся в семестр, продолжается в следующем.
 function mdkBlocks(m) {
   const seq = (m.themes || []).flatMap((th, ti) => themeLessons(th).map(l => ({ ...l, ti })));
+  // каждая практическая пара — отдельная практическая работа со своим номером (сквозной внутри МДК)
+  let pw = 0;
+  seq.forEach(l => { if (l.kind === 'P') l.pw = ++pw; });
   let k = 0;
   let num = 0;
   const blocks = (m.sems || []).map(s => {
@@ -59,7 +62,14 @@ function mdkBlocks(m) {
 
 // Подпись практического занятия: «Практическая работа № N. Название (часть k)»
 function practiceLabel(l) {
-  return `Практическая работа № ${l.n}. ${l.title.replace(/\.\s*$/, '')}${l.parts > 1 ? ` (часть ${l.part})` : ''}`;
+  return `Практическая работа № ${l.pw}. ${l.title.replace(/\.\s*$/, '')}${l.parts > 1 ? ` (часть ${l.part})` : ''}`;
 }
 
-module.exports = { LESSON, distribute, themeLessons, mdkBlocks, practiceLabel };
+// Номера практических работ (по парам) для каждой работы ПОП: { n: [pw, ...] }
+function pwMap(m) {
+  const map = {};
+  mdkBlocks(m).blocks.forEach(b => b.groups.forEach(g => g.lessons.forEach(l => { if (l.kind === 'P') (map[l.n] = map[l.n] || []).push(l.pw); })));
+  return map;
+}
+
+module.exports = { LESSON, distribute, themeLessons, mdkBlocks, practiceLabel, pwMap };

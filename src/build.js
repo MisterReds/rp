@@ -8,7 +8,7 @@ const { D, mm, P_MARG, P_W, L_MARG, L_W, C, p, center, caption, h1, h2, h3, bull
 const { Document, Packer, Paragraph, TextRun, TableRow, Footer, PageNumber, AlignmentType, PageOrientation, VerticalAlign } = D;
 const { loadPlan, semLabel } = require('./plan.js');
 const { validate, parseCodes, OK_CODES } = require('./validate.js');
-const { LESSON, mdkBlocks, practiceLabel } = require('./sequence.js');
+const { LESSON, mdkBlocks, practiceLabel, pwMap } = require('./sequence.js');
 const PP_DAY = 6;
 
 const LETTERS = ['а', 'б', 'в', 'г'];
@@ -354,7 +354,8 @@ function buildDocument(ctx) {
     const formsTxt = m.sems.filter(s => s.form).map(s => `${formNom(s.form)} (${s.label})`).join('; ');
     mdkCodes(m).pk.forEach(k => {
       const ths = worksOf(m, k);
-      const wn = ths.flatMap(th => (th.works || []).map(w => w.n));
+      const pm_ = pwMap(m);
+      const wn = ths.flatMap(th => (th.works || []).flatMap(w => pm_[w.n] || []));
       evalRows.push(new TableRow({ children: [
         cell(`${k}. ${PK.find(x => x[0] === k)[1]}`, w4[0]),
         cell([`Знания, умения и навыки по ${k} (п. 1.1.3), формируемые в темах ${ths.map(th => th.num.replace(/^Тема\s*/, '').replace(/\.$/, '')).join(', ')}.`, ...(wn.length ? [`Действия: выполнение практических работ № ${ranges(wn)}.`] : [])], w4[1]),
@@ -467,10 +468,9 @@ function buildDocument(ctx) {
     blocks.forEach(b => b.groups.forEach(g => { themeSem[g.ti] = b.sem; }));
     blocks.forEach((b, bi) => {
       f5.push(h3(`5.${sn}.${bi + 1}. ${b.label}`));
-      const ws = uniq(b.groups.flatMap(g => g.lessons.filter(l => l.kind === 'P').map(l => l.n)));
-      const allW = m.themes.flatMap(th => th.works || []);
+      const ps = b.groups.flatMap(g => g.lessons.filter(l => l.kind === 'P'));
       f5.push(sub('Текущий контроль. Практические работы'));
-      if (ws.length) f5.push(table(wPW, [hdr(['№ практической работы', 'Тема практической работы', 'Часов в семестре'], wPW), ...ws.map(n => { const w = allW.find(y => y.n === n); const h = b.groups.flatMap(g => g.lessons).filter(l => l.kind === 'P' && l.n === n).length * LESSON; return new TableRow({ children: [cell(String(n), wPW[0], { align: C }), cell(w.title.replace(/\.\s*$/, ''), wPW[1]), cell(String(h), wPW[2], { align: C })] }); })]));
+      if (ps.length) f5.push(table(wPW, [hdr(['№ практической работы', 'Тема практической работы', 'Часов'], wPW), ...ps.map(l => new TableRow({ children: [cell(String(l.pw), wPW[0], { align: C }), cell(`${l.title.replace(/\.\s*$/, '')}${l.parts > 1 ? ` (часть ${l.part})` : ''}`, wPW[1]), cell(String(LESSON), wPW[2], { align: C })] }))]));
       else f5.push(p('Практические работы в семестре не предусмотрены.'));
       const T = (fos.tests[m.code] || []).filter(q => q.t && themeSem[q.t - 1] === b.sem);
       f5.push(sub('Текущий контроль. Тестовые задания'));
