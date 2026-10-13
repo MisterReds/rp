@@ -200,7 +200,7 @@ function buildDocument(ctx, pages = {}) {
     ...c.mdk.map((md, i) => [[codesStr(elemCodes[md.code].pk, elemCodes[md.code].ok), lrStr(lrFromOk(elemCodes[md.code].ok))], `Раздел ${i + 1}. ${md.code} ${md.name}`, md.T + md.P + (md.K || 0), md.P + (md.K || 0), md.T + md.P + (md.K || 0), md.P, md.K || '—', '—', '', '']),
     ...c.up.length ? [[[codesStr(upPK, []) + '; ' + okAll, lrStr(LR_MOD)], `Учебная практика ${c.up[0].code}`, upH, upH, '', '', '', '', upH, '']] : [],
     ...c.pp.length ? [[[codesStr(ppPK, []) + '; ' + okAll, lrStr(LR_MOD)], `Производственная практика ${c.pp[0].code}`, ppH, ppH, '', '', '', '', '', ppH]] : [],
-    ['', 'Промежуточная аттестация', '*', '', '', '', '', '', '', ''],
+    ['', 'Промежуточная аттестация', '—', '', '', '', '', '', '', ''],
   ];
   const struct = table(wS, [
     new TableRow({ tableHeader: true, children: [hc('Коды ПК, ОК, ЛР', wS[0], { rowSpan: 3 }), hc('Наименования разделов профессионального модуля', wS[1], { rowSpan: 3 }), hc('Всего, ч', wS[2], { rowSpan: 3 }), hc('В т. ч. в форме практ. подготовки', wS[3], { rowSpan: 3 }), hc('Объём профессионального модуля, ч', wS.slice(4).reduce((a, b) => a + b, 0), { colSpan: 6 })] }),
@@ -218,7 +218,7 @@ function buildDocument(ctx, pages = {}) {
     new TableRow({ tableHeader: true, children: ['1', '2', '3', '4'].map((t, i) => cell(t, wC[i], { align: C })) })];
   const shadeRow = (text, hours) => new TableRow({ children: [cell(text, span2, { bold: true, colSpan: 2, shade: 'F5F5F5' }), cell(String(hours), wC[2], { bold: true, align: C, shade: 'F5F5F5' }), cell('', wC[3], { shade: 'F5F5F5' })] });
   const semRow = (text, hours) => new TableRow({ children: [cell(text, span2, { italics: true, bold: true, colSpan: 2 }), cell(String(hours), wC[2], { italics: true, bold: true, align: C }), cell('', wC[3])] });
-  const attRow = text => new TableRow({ children: [cell(text, span2, { colSpan: 2, italics: true }), cell('*', wC[2], { align: C }), cell('', wC[3])] });
+  const attRow = text => new TableRow({ children: [cell(text, span2, { colSpan: 2, italics: true }), cell('—', wC[2], { align: C }), cell('', wC[3])] });
   c.mdk.forEach((md, mi) => {
     rows.push(shadeRow(`Раздел ${mi + 1}. ${md.code} ${md.name}`, md.T + md.P + (md.K || 0)));
     let n = 0, tn = 0;
@@ -282,12 +282,11 @@ function buildDocument(ctx, pages = {}) {
   };
   practiceRows(c.up, 'up');
   practiceRows(c.pp, 'pp');
-  rows.push(new TableRow({ children: [cell(`Экзамен по модулю (${c.meta.exam_label})`, span2, { colSpan: 2, bold: true }), cell('*', wC[2], { align: C }), cell([`${pkCodes[0]}–${pkCodes[pkCodes.length - 1].replace('ПК ', '')}; ${okAll}`, lrStr(LR_MOD)], wC[3])] }));
+  rows.push(new TableRow({ children: [cell(`Экзамен по модулю (${c.meta.exam_label})`, span2, { colSpan: 2, bold: true }), cell('—', wC[2], { align: C }), cell([`${pkCodes[0]}–${pkCodes[pkCodes.length - 1].replace('ПК ', '')}; ${okAll}`, lrStr(LR_MOD)], wC[3])] }));
   rows.push(new TableRow({ children: [cell('Всего', span2, { colSpan: 2, bold: true }), cell(String(total), wC[2], { bold: true, align: C }), cell('', wC[3])] }));
   const sec2 = [
     h1('2. Структура и содержание профессионального модуля'),
     h2('2.1. Структура профессионального модуля'), struct,
-    p(`* Промежуточная аттестация проводится в период сессии по календарному учебному графику; часы в объём модуля по учебному плану не включены. Формы: ${formsList.join('; ')}.`, { size: 22, before: 120, noIndent: true }),
     h2('2.2. Содержание профессионального модуля'),
     table(wC, rows),
   ];
