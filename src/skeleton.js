@@ -19,12 +19,22 @@ function formOf(project, item, semIdx) {
 function themesFromPop(sec, T, P) {
   const nT = T / LESSON, nP = P / LESSON;
   const tCount = distribute(nT, sec.themes.map(t => t.content.join(' ').length));
-  const labs = sec.themes.flatMap((t, ti) => t.labs.map(l => ({ ti, ...l })));
-  const pairs = labs.length ? distribute(nP, labs.map(l => l.title.length)) : [];
+  // группы лабораторных работ: обычно одна работа ПОП — одна группа; если пар по плану меньше,
+  // чем работ ПОП, соседние короткие работы одной темы объединяются в одно занятие (названия сохраняются полностью)
+  let groups = sec.themes.flatMap((t, ti) => t.labs.map(l => ({ ti, titles: [l.title] })));
+  const len = g => g.titles.join(' ').length;
+  while (groups.length > nP) {
+    let best = -1;
+    for (let i = 0; i + 1 < groups.length; i++) if (groups[i].ti === groups[i + 1].ti && (best < 0 || len(groups[i]) + len(groups[i + 1]) < len(groups[best]) + len(groups[best + 1]))) best = i;
+    if (best < 0) throw new Error(`практических пар по плану (${nP}) меньше, чем тем с лабораторными работами ПОП — распределите вручную`);
+    groups.splice(best, 2, { ti: groups[best].ti, titles: [...groups[best].titles, ...groups[best + 1].titles] });
+  }
+  const pairs = groups.length ? distribute(nP, groups.map(len)) : [];
   return sec.themes.map((t, ti) => ({
     num: t.num, name: t.name, content: t.content, codes: '',
     theory_count: tCount[ti], theory: [],
-    works: labs.map((l, j) => ({ ...l, pairs: pairs[j] })).filter(l => l.ti === ti).map(({ n, title, pairs: p }) => ({ n, title, pairs: p })),
+    works: groups.map((g, j) => ({ ...g, n: j + 1, pairs: pairs[j] })).filter(g => g.ti === ti)
+      .map(g => (g.titles.length > 1 ? { n: g.n, title: g.titles.map(x => x.replace(/\.\s*$/, '')).join('. '), pop_titles: g.titles, pairs: g.pairs } : { n: g.n, title: g.titles[0], pairs: g.pairs })),
   }));
 }
 

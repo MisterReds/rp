@@ -40,7 +40,8 @@ function validate(content, opts = {}) {
           const t = m.themes[i]; if (!t) return;
           if (t.name !== pt.name || t.num !== pt.num) E(`${m.code}: тема ${i + 1} «${t.num} ${t.name}» не совпадает с ПОП «${pt.num} ${pt.name}»`);
           if (JSON.stringify(t.content) !== JSON.stringify(pt.content)) E(`${m.code}, ${pt.num} ${pt.name}: содержание темы изменено относительно ПОП`);
-          pt.labs.forEach(l => { const w = (t.works || []).find(x => x.n === l.n); if (!w || w.title !== l.title) E(`${m.code}, ${pt.num}: нет практической работы № ${l.n} ПОП «${l.title.slice(0, 60)}…» (название менять нельзя)`); });
+          const got = (t.works || []).flatMap(w => w.pop_titles || [w.title]);
+          pt.labs.forEach((l, li) => { if (got[li] !== l.title) E(`${m.code}, ${pt.num}: нет лабораторной работы ПОП «${l.title.slice(0, 60)}…» на своём месте (название и порядок менять нельзя)`); });
         });
       }
       let T = 0, P = 0;
@@ -65,7 +66,7 @@ function validate(content, opts = {}) {
         c.ok.forEach(x => { if (!OK_CODES.includes(x)) E(`${tp}: неизвестный код ${x}`); });
         T += (th.theory || []).length * LESSON;
       });
-      nums.forEach((n, i) => { if (n !== i + 1) E(`${m.code}: практические работы должны идти по порядку с № 1 (найдено № ${n} на месте ${i + 1})`); });
+      if (new Set(nums).size !== nums.length) E(`${m.code}: внутренние номера практических работ (n) должны быть уникальны`);
       if (T !== m.T) E(`${m.code}: теория по занятиям ${T} ч, по плану ${m.T} ч`);
       if (P !== m.P) E(`${m.code}: практика по занятиям ${P} ч, по плану ${m.P} ч`);
       const b = mdkBlocks(m);

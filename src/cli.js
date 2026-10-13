@@ -57,7 +57,7 @@ async function main() {
     Object.assign(ex, {
       fgos: rel(opt.fgos || path.join(root, 'data/fgos/09.02.06.json')),
       vospitanie: rel(opt.vosp || path.join(root, 'data/vospitanie/spet_2026-2027.json')),
-      plan: rel(opt.plan), pop: opt.pop ? rel(opt.pop) : undefined, forms_override: {}, pm: opt.pm, vd_name: opt.vd || undefined, group: opt.group || ex.group,
+      plan: rel(opt.plan), pop: opt.pop ? rel(opt.pop) : undefined, forms_override: { [`ПП.${opt.pm.replace(/^ПМ\./, '')}`]: null }, pm: opt.pm, vd_name: opt.vd || undefined, group: opt.group || ex.group,
       content: 'content.json', output: `РП_${opt.pm}_${opt.group || ex.group}_с_ФОС.docx`,
       hints: { general: '', mdk: {}, up: '' },
       llm: { provider: 'openai', base_url: 'https://api.openai.com/v1', model: '', api_key_env: 'LLM_API_KEY', temperature: 0.4, json_mode: true },
