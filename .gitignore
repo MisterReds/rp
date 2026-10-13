@@ -1,0 +1,8 @@
+node_modules/
+out/
+projects/*
+!projects/.gitkeep
+**/prompt_next.md
+*.docx
+!examples/**/*.docx
+.env

@@ -1,0 +1,68 @@
+// Разбор учебного плана, скопированного из Excel (текст с табуляциями, TSV).
+// Ожидаемые столбцы: Индекс | Наименование | Формы ПА | Макс. | Самост. | Обяз. | Теория | Практика | Курсовых | семестр 1 | семестр 2 | ...
+'use strict';
+const fs = require('fs');
+
+const INDEX_RE = /^(СГ|ОП|П|ПМ|МДК|УП|ПП|ПДП|ГИА|ОУД|БД|ПД|ПОО|ОГСЭ|ЕН)(\.\d+)*\.?\s*$/;
+const FORM_NAMES = {
+  'Э': 'экзамен', 'ДЗ': 'дифференцированный зачёт', 'З': 'зачёт',
+  'ДР': 'другая форма контроля (контрольная работа)', 'КР': 'контрольная работа', 'ЭК': 'экзамен квалификационный',
+};
+
+function num(x) {
+  const v = String(x || '').replace(/\s/g, '').replace(',', '.');
+  return v === '' ? 0 : Number(v);
+}
+
+function parsePlanText(text) {
+  const lines = text.split(/\r?\n/);
+  const items = [];
+  let title = '';
+  for (const line of lines) {
+    const c = line.split('\t').map(s => s.trim());
+    if (!title && /ОП|Учебный план|План/i.test(c[0] || '')) title = c[0];
+    if (!INDEX_RE.test(c[0] || '')) continue;
+    // числовая часть начинается с 4-го столбца
+    const nums = c.slice(3).map(num);
+    if (nums.some(Number.isNaN)) continue;
+    const [max, self, oblig, theory, practice, course, ...sem] = nums;
+    items.push({ index: c[0].replace(/\.$/, ''), name: c[1], forms_raw: c[2] || '', max, self, oblig, theory, practice, course, sem });
+  }
+  const nSem = Math.max(0, ...items.map(i => i.sem.length));
+  items.forEach(i => { while (i.sem.length < nSem) i.sem.push(0); });
+  items.forEach(i => { i.forms = mapForms(i); });
+  return { title, nSem, items };
+}
+
+// Формы ПА перечислены через запятую по семестрам, в которых есть часы ("-, -, Э").
+function mapForms(item) {
+  const active = item.sem.map((h, i) => (h > 0 ? i : -1)).filter(i => i >= 0);
+  const raw = item.forms_raw;
+  const res = {};
+  if (!raw || /^[-–]?\/?\d/.test(raw) && raw.includes('/')) return res; // сводная строка цикла "-/2/4/1"
+  const parts = raw.split(',').map(s => s.trim()).filter(s => s.length);
+  if (parts.length === active.length) parts.forEach((f, k) => { if (f !== '-' && f !== '–') res[active[k]] = f; });
+  else if (parts.length === 1 && active.length) { if (parts[0] !== '-') res[active[active.length - 1]] = parts[0]; }
+  else parts.forEach((f, k) => { if (k < active.length && f !== '-') res[active[k]] = f; });
+  return res;
+}
+
+function semLabel(i, offset = 0) {
+  return `${Math.floor(i / 2) + 1 + offset} курс, ${(i % 2) + 1} семестр`;
+}
+
+// Выбрать из плана всё, что относится к модулю ПМ.0N
+function moduleFromPlan(plan, pmCode) {
+  const n = pmCode.replace(/^ПМ\./, '');
+  const pm = plan.items.find(i => i.index === pmCode);
+  if (!pm) throw new Error(`В учебном плане не найден модуль ${pmCode}`);
+  const mdk = plan.items.filter(i => i.index.startsWith(`МДК.${n}.`));
+  const up = plan.items.filter(i => i.index === `УП.${n}` || i.index.startsWith(`УП.${n}.`));
+  const pp = plan.items.filter(i => i.index === `ПП.${n}` || i.index.startsWith(`ПП.${n}.`));
+  const lastSem = pm.sem.reduce((a, h, i) => (h > 0 ? i : a), -1);
+  return { pm, mdk, up, pp, lastSem, nSem: plan.nSem };
+}
+
+function loadPlan(file) { return parsePlanText(fs.readFileSync(file, 'utf8')); }
+
+module.exports = { parsePlanText, loadPlan, moduleFromPlan, semLabel, FORM_NAMES };

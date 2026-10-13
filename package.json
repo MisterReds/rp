@@ -1,0 +1,11 @@
+{
+  "name": "rpgen",
+  "version": "1.0.0",
+  "description": "Генератор рабочих программ профессиональных модулей СПО с фондом оценочных средств (один .docx)",
+  "main": "src/cli.js",
+  "bin": { "rpgen": "src/cli.js" },
+  "scripts": { "build-example": "node src/cli.js build examples/PM01_OA-2401/project.json" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "docx": "^9.5.0" },
+  "license": "MIT"
+}
