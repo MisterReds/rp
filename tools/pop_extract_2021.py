@@ -4,7 +4,8 @@
 Отличия от формата ПОП 2025 (tools/pop_extract.py):
   • результаты освоения — таблица «Иметь практический опыт / уметь / знать» (results_simple);
   • работы без номеров: «Практическая работа «…»», «Лабораторная работа «…»»;
-  • строки «Дополнительно для квалификаций "…"» включаются, только если среди них есть квалификация группы;
+  • строки «Дополнительно для квалификаций "…"» и части строк после «Для квалификации «…»:» включаются,
+    только если там названа квалификация группы;
   • перечень ОК (01–11) берётся из раздела 4.1 ПООП.
 
 Использование (файл .doc сначала конвертировать: soffice --headless --convert-to docx ПООП.doc):
@@ -54,6 +55,44 @@ def code_norm(s):
     if m.group(1) == 'ОК':
         return 'ОК %02d' % int(m.group(2))
     return 'ПК %s.%s' % (m.group(2), m.group(3)) if m.group(3) else None
+
+
+# внутри строки: «Аппаратное обеспечение. Для квалификации «Администратор баз данных»: Развертывание …»
+INLINE_Q = re.compile(r'\s*Для квалификаци[ийя]\s*[«"]([^»"]+)[»"]\s*:?\s*')
+
+
+def split_inline(lines, qual):
+    """Часть строки после «Для квалификации «X»:» остаётся, только если X — квалификация группы."""
+    out = []
+    for ln in lines:
+        m = INLINE_Q.search(ln)
+        if not m:
+            out.append(ln)
+            continue
+        pre, post = ln[:m.start()].strip(), ln[m.end():].strip()
+        if pre:
+            out.append(pre)
+        if post and qual in m.group(1).lower():
+            out.append(post)
+    return out
+
+
+def qual_filter(lines, qual):
+    """Критерии/методы: блок «Дополнительно для квалификации "X":» и следующая за ним строка остаются,
+    только если X включает квалификацию группы (в ПООП блок — заголовок + одна строка)."""
+    out, skip = [], False
+    for ln in lines:
+        dm = re.match(r'^Дополнительно для квалификаци[йи](.*?)[:.]?\s*$', ln, re.I)
+        if dm:
+            skip = qual not in dm.group(1).lower()
+            if not skip:
+                out.append(ln)
+            continue
+        if skip and ln.strip():
+            skip = False
+            continue
+        out.append(ln)
+    return out
 
 
 DOP = re.compile(r'^Дополнительно для квалификаци[йи](.*?)[:.]?\s*$', re.I)
@@ -146,8 +185,8 @@ def main():
                 k = code_norm(' '.join(r[0])) if r and r[0] else None
                 if not k or k in out['criteria']:
                     continue
-                out['criteria'][k] = {'criteria': [y.lstrip('- ').strip() for y in (r[1] if len(r) > 1 else [])],
-                                      'methods': [y.lstrip('- ').strip() for y in (r[2] if len(r) > 2 else [])]}
+                out['criteria'][k] = {'criteria': qual_filter([y.lstrip('- ').strip() for y in (r[1] if len(r) > 1 else [])], qual),
+                                      'methods': qual_filter([y.lstrip('- ').strip() for y in (r[2] if len(r) > 2 else [])], qual)}
             continue
         if head.startswith('Наименование разделов и тем'):
             sec = theme = None
@@ -179,7 +218,7 @@ def main():
                 if theme is None or not body:
                     continue
                 use = True
-                for ln in join_quotes(body):
+                for ln in split_inline(join_quotes(body), qual):
                     dm = DOP.match(ln)
                     if dm:
                         use = qual in dm.group(1).lower()

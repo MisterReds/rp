@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from doc2text import read_lines  # noqa: E402
 
 # поля, которые не обязаны дословно встречаться в исходнике (служебные или собранные программой)
-SKIP_KEYS = {'_source', '_comment', '_notes', '_ack', '_corrections', '_cover', '_source_doc', 'format', 'qualification', 'pm', 'specialty', 'vd', 'mdk', 'num', 'n', 'mdk_title_pop',
+SKIP_KEYS = {'_source', '_comment', '_notes', '_ack', '_corrections', '_cover', '_source_doc', '_excluded', 'format', 'qualification', 'pm', 'specialty', 'vd', 'mdk', 'num', 'n', 'mdk_title_pop',
              'vd_name', 'results_intro', 'source_url', 'ok_source', 'ok_results_source', 'order', 'order_by', 'order_date', 'minjust', 'code',
              'professional_area', 'professional_standards', 'title', 'source_table', 'ok_lr', 'ok_lr_module', 'hours',
              'course_hours', 'name_short', 'qualification_short'}
@@ -157,7 +157,7 @@ def fgos_checks(d):
 
 COVER_IGNORE = re.compile(r'^(дополнительно для квалификаци.*|\d+([.,]\d+)?|\*|содержание.*|в том числе.*|тематика.*|самостоятельная.*|всего.*|'
                           r'промежуточная.*|учебная практика.*|производственная практика.*|виды работ.*|курсов.*|наименование.*|'
-                          r'уровень.*|объем.*|коды.*|(ок|пк)\.?\s*\d+(\.\d+)?(\s*[-–]\s*(ок|пк)?\.?\s*\d+(\.\d+)?)?\.?|раздел \d+\.?|тема \d+(\.\d+)*\.?|мдк\.?\s*\d+\.\d+\.?)$')
+                          r'уровень.*|объем.*|коды.*|раздел модуля \d+.*|(ок|пк)\.?\s*\d+(\.\d+)?(\s*[-–]\s*(ок|пк)?\.?\s*\d+(\.\d+)?)?\.?|раздел \d+\.?|тема \d+(\.\d+)*\.?|мдк\.?\s*\d+\.\d+\.?)$')
 
 
 def all_strings(x, out):
@@ -172,10 +172,23 @@ def all_strings(x, out):
     return out
 
 
+CODE_NAME = re.compile(r'^(ок|пк)\.?\s*\d+(\.\d+)?\.?\s*\S')  # «ОК 08. Использовать…» — код с названием (из ФГОС)
+QBLOCK = re.compile(r'(?:дополнительно\s+)?для\s+квалификаци[ийя]\s*[«"]?[^»":]*[»"]?\s*(?:и\s*[«"][^»"]*[»"]\s*)?:?', re.I)
+
+
+def pieces(cell):
+    """Части многострочной ячейки: пункты списка, оценки, блоки квалификаций (заголовок блока отбрасывается)."""
+    t = re.sub(r'(?=Оценка\s*«)', '\n', cell)
+    t = QBLOCK.sub('\n', t)
+    t = re.sub(r'(?:^|\s)[-–•]\s+', '\n', t)
+    return [x.strip(' ;') for x in t.split('\n') if x.strip(' ;')]
+
+
 def coverage(src_paths, data, start, end):
     """Обратная проверка полноты: каждая ячейка/абзац тематического плана ПОП (от start до end включительно)
     должна оказаться в JSON. Служебные ячейки (часы, «Содержание», «В том числе…») пропускаются."""
     J = norm(' '.join(all_strings(data, [])))
+    EX = [strip_tail(norm(x)) for x in data.get('_excluded', [])]  # не переносится намеренно (другая квалификация)
     miss = []
     for p in src_paths:
         lines = read_lines(p)
@@ -210,9 +223,20 @@ def coverage(src_paths, data, start, end):
                     continue
                 n2 = re.sub(r'^(тема|раздел|мдк)\.?\s*[\d.]+\s*', '', n)
                 n2 = strip_tail(re.sub(r'^(лабораторн\w*|практическ\w*)\s+(работ\w*|заняти\w*)\s*(№\s*\d+)?[.:]?\s*', '', n2).strip('"'))
-                if len(n2) < 4 or n2 in J or found(n2, J):
+                if len(n2) < 4 or n2 in J or found(n2, J) or CODE_NAME.match(n2):
                     continue
-                miss.append((f'[{where}]', cell))
+                # многострочная ячейка (критерии, методы): проверяем по частям — пункты «- …», «Оценка …»,
+                # блоки другой квалификации («Для квалификации «X»: …» / «Дополнительно для квалификации "X": …»)
+                for piece in pieces(cell):
+                    pn = strip_tail(norm(piece))
+                    for e in EX:
+                        pn = pn.replace(e, '|')
+                    for part in pn.split('|'):
+                        part = strip_tail(part.strip())
+                        if len(part) < 4 or COVER_IGNORE.match(part) or part in J or found(part, J) or any(part in e for e in EX):
+                            continue
+                        miss.append((f'[{where}]', piece))
+                        break
         return miss
     sys.exit(f'--cover: не найдены строки {start} / {end} в исходнике (номера — из tools/doc2text.py)')
 
@@ -248,6 +272,7 @@ def main():
         if strip_tail(norm(c['was'])) not in src:
             print(f'НЕТ В ИСХОДНИКЕ _corrections.was: {c["was"][:160]}')
             items.append(('_corrections', c['was']))
+    items += [('_excluded', x) for x in data.get('_excluded', [])]  # исключённое тоже должно быть в исходнике
     miss = [(p, s) for p, s in items if not found(s, src, fixes)]
     for p, s in miss:
         print(f'НЕТ В ИСХОДНИКЕ {p}: {s[:160]}')
