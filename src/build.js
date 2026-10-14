@@ -350,7 +350,7 @@ function buildDocument(ctx) {
   const w4 = widths(P_W, [38, 0, 42, 45], 1);
   const groupRow = t => new TableRow({ children: [cell(t, P_W, { colSpan: 4, bold: true, shade: 'F2F2F2' })] });
   const scale = ['«5» — действие выполнено полностью и самостоятельно, результат соответствует заданию', '«4» — выполнено полностью, допущены 1–2 несущественные ошибки, исправленные самостоятельно', '«3» — выполнено не менее чем на 60 %, основной результат достигнут с помощью преподавателя', '«2» — выполнено менее чем на 60 % или результат не достигнут'];
-  const pkMethodsPop = (crit['ПК 1.1'] || {}).methods || [];
+  const pkMethodsPop = (Object.values(crit).find(x => x.methods && x.methods.length) || {}).methods || [];
   const popMethods = pkMethodsPop.filter(x => !/курсов/i.test(x) || c.mdk.some(m => m.K));
   const evalRows = [hdr(['Код и наименование ПК, ОК', 'Оцениваемые знания и умения, действия', 'Методы оценки', 'Критерии оценки'], w4)];
   MB.forEach(({ m }) => {

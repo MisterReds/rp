@@ -47,6 +47,7 @@ function listStages(ctx) {
   const c = ctx.content;
   const pop = ctx.pop || {};
   const pk = c.meta.pk.map(x => x[0]);
+  const okList = c.meta.ok || OK_CODES;
   const vars0 = { context: contextBlock(ctx), pm: c.meta.pm, pm_name: c.meta.pm_name, pk_codes: pk.join(', ') };
   const hints = ctx.project.hints || {};
   const S = [];
@@ -62,7 +63,7 @@ function listStages(ctx) {
         const t = m.themes[i]; const w = `${t.num} ${t.name}`;
         if (!Array.isArray(th.theory) || th.theory.length !== t.theory_count) E(`${w}: нужно ровно ${t.theory_count} теоретических занятий`);
         (th.theory || []).forEach(x => { if (!nonEmpty(x)) E(`${w}: пустое название занятия`); });
-        checkCodes(th.codes, pk, w, E);
+        checkCodes(th.codes, pk, w, E, true, okList);
         if (!parseCodes(th.codes).ok.length) E(`${w}: в codes нет ОК`);
       });
       return e;
@@ -87,7 +88,7 @@ function listStages(ctx) {
   c.up.forEach((u, ui) => S.push({
     id: `up:${ui + 1}`, title: `Учебная практика ${u.code}, ${u.label} (${u.hours} ч)`,
     prompt: () => tpl('up', { ...vars0, code: u.code, sem_label: u.label, hours: u.hours,
-      works: upSplit[ui].map(x => `«${x}»`).join('; ') || 'составь сам (в ПОП нет перечня)',
+      works: upWorks.length ? `${upSplit[ui].map(x => `«${x}»`).join('; ')} (рекомендуемое распределение; допустимы любые виды работ из перечня ПОП: ${upWorks.map(x => `«${x}»`).join('; ')}; за все семестры должны быть охвачены все)` : 'составь сам (в ПОП нет перечня видов работ)',
       studied: c.mdk.flatMap(m => studiedThemes(m, u.sem)).join('; ') || 'см. состав модуля',
       up_hint: hints.up ? `Пожелания преподавателя: ${hints.up}` : '',
       first_note: ui === 0 ? 'Первое задание первого вида работ — инструктаж по охране труда и организация рабочего места (2 ч).' : '',
@@ -97,11 +98,15 @@ function listStages(ctx) {
       if (!Array.isArray(d.works) || !d.works.length) return ['нет works'];
       let s = 0;
       d.works.forEach((w, i) => {
-        if (upSplit[ui].length && !upSplit[ui].includes(w.name)) E(`вид работ ${i + 1} «${w.name}»: название должно дословно совпадать с одним из: ${upSplit[ui].join(' | ')}`);
+        if (upWorks.length && !upWorks.includes(w.name)) E(`вид работ ${i + 1} «${w.name}»: название должно дословно совпадать с одним из видов работ ПОП: ${upWorks.join(' | ')}`);
         (w.tasks || []).forEach(t => { if (!Array.isArray(t) || !nonEmpty(t[0]) || !(t[1] > 0) || t[1] % LESSON) E(`«${w.name}»: задание ${JSON.stringify(t)} — нужно ["название", часы кратные 2]`); else s += t[1]; });
-        checkCodes(w.codes, pk, `«${w.name}»`, E, false);
+        checkCodes(w.codes, pk, `«${w.name}»`, E, false, okList);
       });
-      upSplit[ui].forEach(n => { if (!d.works.some(w => w.name === n)) E(`не включён вид работ «${n}»`); });
+      // все виды работ ПОП должны встретиться на учебной практике (по всем семестрам вместе)
+      if (ui === c.up.length - 1 && upWorks.length) {
+        const used = new Set([...c.up.slice(0, ui).flatMap(x => (x.works || []).map(w => w.name)), ...d.works.map(w => w.name)]);
+        upWorks.forEach(n => { if (!used.has(n)) E(`не включён вид работ ПОП «${n}»`); });
+      }
       if (s !== u.hours) E(`сумма часов ${s}, нужно ровно ${u.hours}`);
       return e;
     },
@@ -121,7 +126,7 @@ function listStages(ctx) {
       d.works.forEach(w => {
         if ((pop.pp_works || []).length && !pop.pp_works.includes(w.name)) E(`вид работ «${w.name}» не совпадает дословно с ПОП`);
         (w.days || []).forEach(x => { if (!nonEmpty(x)) E(`пустой день в «${w.name}»`); if (!u.form && /зач[её]т/i.test(x)) E(`«${x}»: зачёт по производственной практике не проводится`); });
-        checkCodes(w.codes, pk, `«${w.name}»`, E, false);
+        checkCodes(w.codes, pk, `«${w.name}»`, E, false, okList);
       });
       (pop.pp_works || []).forEach(n => { if (!d.works.some(w => w.name === n)) E(`не включён вид работ ПОП «${n}»`); });
       const seen = new Set(d.works.flatMap(w => parseCodes(w.codes).pk));
@@ -137,8 +142,9 @@ function listStages(ctx) {
     check: d => {
       const e = [];
       const eq = d.equipment || {};
-      ['cabinet', 'lab', 'workshop'].forEach(k => { if (!(eq[k] || []).length) e.push(`equipment.${k}: пусто`); });
-      [...(c.meta.ok || OK_CODES), 'none'].forEach(k => { if (!nonEmpty((d.lr_methods || {})[k])) e.push(`lr_methods["${k}"]: пусто`); });
+      if (!(eq.cabinet || []).length) e.push('equipment.cabinet: пусто');
+      if (!(eq.lab || []).length && !(eq.workshop || []).length) e.push('equipment.lab / equipment.workshop: нужно оснащение лаборатории или мастерской');
+      [...okList, 'none'].forEach(k => { if (!nonEmpty((d.lr_methods || {})[k])) e.push(`lr_methods["${k}"]: пусто`); });
       return e;
     },
     apply: d => { c.program.conditions = { equipment: d.equipment, software: d.software || [] }; c.program.lr_methods = d.lr_methods; },
@@ -152,7 +158,7 @@ function listStages(ctx) {
       prompt: () => tpl('tests', { ...vars0, mdk_code: m.code, mdk_name: m.name, themes: themes(), n: N }),
       check: d => {
         const e = []; const T = d.tests || [];
-        if (T.length !== N) e.push(`вопросов ${T.length}, нужно ровно ${N}`);
+        if (T.length < 15 || T.length > 40) e.push(`вопросов ${T.length}, нужно ${N} (допустимо 15–40)`);
         T.forEach((q, i) => { if (!nonEmpty(q.q)) e.push(`вопрос ${i + 1}: нет текста`); if (!Array.isArray(q.options) || q.options.length !== 4 || new Set(q.options).size !== 4) e.push(`вопрос ${i + 1}: нужно 4 разных варианта`); if (!Number.isInteger(q.answer) || q.answer < 0 || q.answer > 3) e.push(`вопрос ${i + 1}: answer 0–3`); if (!Number.isInteger(q.t) || q.t < 1 || q.t > m.themes.length) e.push(`вопрос ${i + 1}: t — порядковый номер темы 1–${m.themes.length}`); });
         const cnt = [0, 0, 0, 0]; T.forEach(q => { if (q.answer >= 0 && q.answer <= 3) cnt[q.answer]++; });
         if (T.length && Math.max(...cnt) > Math.ceil(T.length * 0.45)) e.push(`правильные ответы распределены неравномерно (${cnt.join('/')}) — перемешай варианты`);
@@ -162,11 +168,12 @@ function listStages(ctx) {
     });
     const f = examForms(m);
     if (f['Э'] || f['ДЗ'] || f['З']) {
-      const nq = f['Э'] ? 25 : 20, nt = f['Э'] ? 12 : 10;
+      const nq = f['Э'] ? 25 : 20, nt = f['Э'] ? 12 : 10; // просим в промпте
+      const mq = f['Э'] ? 20 : 15, mt = f['Э'] ? 10 : 8;   // минимум (как в validate)
       S.push({
         id: `exam:${m.code}`, title: `Вопросы и задачи к экзамену ${m.code}`,
         prompt: () => tpl('exam', { ...vars0, mdk_code: m.code, mdk_name: m.name, themes: themes(), forms: Object.keys(f).map(x => FORM_NAMES[x] || x).join(', '), nq, nt }),
-        check: d => { const e = []; if ((d.questions || []).length < nq) e.push(`questions: нужно не меньше ${nq}`); if ((d.tasks || []).length < nt) e.push(`tasks: нужно не меньше ${nt}`); return e; },
+        check: d => { const e = []; if ((d.questions || []).length < mq) e.push(`questions: нужно не меньше ${mq} (лучше ${nq})`); if ((d.tasks || []).length < mt) e.push(`tasks: нужно не меньше ${mt} (лучше ${nt})`); return e; },
         apply: d => { c.fos.exams[m.code] = { questions: d.questions, tasks: d.tasks }; },
       });
     }
