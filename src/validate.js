@@ -17,6 +17,18 @@ function parseCodes(s) {
 }
 
 // Формы аттестации МДК по семестрам: {Э: ['2 курс, 1 семестр'], ...}
+// ФОС: по 2 на каждого обучающегося при наборе ~30 человек — не меньше 60 тестовых вопросов на МДК,
+// 60 вопросов и 60 практических заданий на каждую промежуточную аттестацию (экзамен/зачёт), 60 вопросов к зачёту по УП
+const FOS_MIN = 60;
+const FOS_PART = 20; // нейросеть пишет их частями по 20
+
+// Промежуточные аттестации МДК с билетами (Э, ДЗ, З): ключ в fos.exams — код МДК для последней,
+// «код|семестр» для более ранних (так их ищет сборка)
+function examKeys(mdk) {
+  const at = (mdk.sems || []).filter(b => ['Э', 'ДЗ', 'З'].includes(b.form));
+  return at.map((b, i) => ({ key: i === at.length - 1 ? mdk.code : `${mdk.code}|${b.label}`, sem: b.sem, label: b.label, form: b.form, last: i === at.length - 1 }));
+}
+
 function examForms(mdk) {
   const f = {};
   (mdk.sems || []).forEach(b => { if (b.form) (f[b.form] = f[b.form] || []).push(b.label); });
@@ -138,7 +150,7 @@ function validate(content, opts = {}) {
     const f = content.fos;
     content.mdk.forEach(m => {
       const tests = f.tests[m.code] || [];
-      if (tests.length < 15) E(`fos.tests["${m.code}"]: нужно не меньше 15 вопросов (сейчас ${tests.length})`);
+      if (tests.length < FOS_MIN) E(`fos.tests["${m.code}"]: нужно не меньше ${FOS_MIN} вопросов — по 2 на обучающегося (сейчас ${tests.length})`);
       const cnt = [0, 0, 0, 0];
       tests.forEach((q, i) => {
         const p = `fos.tests["${m.code}"][${i + 1}]`;
@@ -149,19 +161,18 @@ function validate(content, opts = {}) {
       });
       if (tests.length && Math.max(...cnt) / tests.length > 0.45) W(`fos.tests["${m.code}"]: больше 45 % правильных ответов под одной буквой — перемешайте варианты`);
       const forms = examForms(m);
-      if (forms['Э'] || forms['ДЗ'] || forms['З']) {
-        const ex = f.exams[m.code] || {};
-        const nq = forms['Э'] ? 20 : 15, nt = forms['Э'] ? 10 : 8;
-        if ((ex.questions || []).length < nq) E(`fos.exams["${m.code}"].questions: нужно не меньше ${nq}`);
-        if ((ex.tasks || []).length < nt) E(`fos.exams["${m.code}"].tasks: нужно не меньше ${nt}`);
-      }
+      examKeys(m).forEach(({ key }) => {
+        const ex = f.exams[key] || {};
+        if ((ex.questions || []).length < FOS_MIN) E(`fos.exams["${key}"].questions: нужно не меньше ${FOS_MIN} (сейчас ${(ex.questions || []).length})`);
+        if ((ex.tasks || []).length < FOS_MIN) E(`fos.exams["${key}"].tasks: нужно не меньше ${FOS_MIN} (сейчас ${(ex.tasks || []).length})`);
+      });
       if (forms['ДР'] || forms['КР']) {
         const cw = f.control_works[m.code];
         if (!cw || (cw.variants || []).length < 3) E(`fos.control_works["${m.code}"]: нужно не меньше 3 вариантов контрольной работы (шаблон СПЭТ: 3–4 варианта)`);
         else cw.variants.forEach((v, i) => { if ((v.tasks || []).length < 2) E(`fos.control_works["${m.code}"] вариант ${i + 1}: нужно не меньше 2 заданий`); if (!nonEmpty(v.answer)) W(`fos.control_works["${m.code}"] вариант ${i + 1}: нет эталона ответа`); });
       }
     });
-    if (content.up.some(u => u.form === 'ДЗ') && (f.up_questions || []).length < 10) E('fos.up_questions: нужно не меньше 10 вопросов к дифференцированному зачёту по учебной практике');
+    if (content.up.some(u => u.form) && (f.up_questions || []).length < FOS_MIN) E(`fos.up_questions: нужно не меньше ${FOS_MIN} вопросов к зачёту по учебной практике (сейчас ${(f.up_questions || []).length})`);
     const me = f.module_exam;
     const covered = new Set((me.parts || []).flatMap(p => p.pk || []));
     pkList.forEach(x => { if (!covered.has(x)) E(`fos.module_exam.parts: ${x} не проверяется на экзамене по модулю`); });
@@ -177,4 +188,4 @@ function validate(content, opts = {}) {
   return { errors, warnings };
 }
 
-module.exports = { validate, parseCodes, examForms, OK_CODES };
+module.exports = { validate, parseCodes, examForms, examKeys, OK_CODES, FOS_MIN, FOS_PART };

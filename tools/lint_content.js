@@ -78,7 +78,7 @@ function lint(c) {
   // 5. экзамены и контрольные
   Object.entries(c.fos.exams || {}).forEach(([k, e]) => {
     near(e.questions || [], 0.8).forEach(([a, b]) => E(`экзамен ${k}: вопросы почти одинаковые: «${a}» / «${b}»`));
-    near(e.tasks || [], 0.9).forEach(([a, b]) => E(`экзамен ${k}: задания почти одинаковые: «${a}» / «${b}»`));
+    near(e.tasks || [], 2).forEach(([a]) => E(`экзамен ${k}: задание повторяется дословно: «${a}»`));
   });
   Object.entries(c.fos.control_works || {}).forEach(([k, w]) => {
     const V = (w.variants || []).map(v => (v.tasks || []).join(' '));

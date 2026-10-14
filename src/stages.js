@@ -3,7 +3,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { parseCodes, examForms, OK_CODES } = require('./validate.js');
+const { parseCodes, examForms, examKeys, OK_CODES, FOS_MIN, FOS_PART } = require('./validate.js');
 const { LESSON, mdkBlocks } = require('./sequence.js');
 const { FORM_NAMES } = require('./plan.js');
 
@@ -160,35 +160,69 @@ function listStages(ctx) {
 
   c.mdk.forEach(m => {
     const themes = () => m.themes.map((t, i) => `${i + 1}) ${t.num} ${t.name}`).join('; ');
-    const N = Math.max(15, Math.min(25, Math.round((m.T + m.P) / 8)));
-    S.push({
-      id: `tests:${m.code}`, title: `Тест по ${m.code} (${N} вопросов)`,
-      prompt: () => tpl('tests', { ...vars0, mdk_code: m.code, mdk_name: m.name, themes: themes(), n: N }),
-      check: d => {
-        const e = []; const T = d.tests || [];
-        if (T.length < 15 || T.length > 40) e.push(`вопросов ${T.length}, нужно ${N} (допустимо 15–40)`);
-        T.forEach((q, i) => { if (!nonEmpty(q.q)) e.push(`вопрос ${i + 1}: нет текста`); if (!Array.isArray(q.options) || q.options.length !== 4 || new Set(q.options).size !== 4) e.push(`вопрос ${i + 1}: нужно 4 разных варианта`); if (!Number.isInteger(q.answer) || q.answer < 0 || q.answer > 3) e.push(`вопрос ${i + 1}: answer 0–3`); if (!Number.isInteger(q.t) || q.t < 1 || q.t > m.themes.length) e.push(`вопрос ${i + 1}: t — порядковый номер темы 1–${m.themes.length}`); });
-        T.forEach((q, i) => (q.options || []).forEach(o => { if (Q.VAGUE_OPTION.test(String(o))) e.push(`вопрос ${i + 1}: вариант «${o}» недопустим — только конкретные варианты`); }));
-        Q.near(T.map(q => q.q), 0.85).forEach(([a, b]) => e.push(`вопросы почти одинаковые: «${a}» / «${b}» — замени один`));
-        const longest = T.filter(q => { const L = (q.options || []).map(o => String(o).length); return L.length === 4 && L[q.answer] === Math.max(...L) && L.filter(x => x === L[q.answer]).length === 1; }).length;
-        if (T.length >= 10 && longest / T.length > 0.6) e.push(`в ${longest} из ${T.length} вопросов правильный вариант самый длинный — ответ угадывается по длине; сделай неправильные варианты такой же длины и правдоподобными`);
-        const cnt = [0, 0, 0, 0]; T.forEach(q => { if (q.answer >= 0 && q.answer <= 3) cnt[q.answer]++; });
-        if (T.length && Math.max(...cnt) > Math.ceil(T.length * 0.45)) e.push(`правильные ответы распределены неравномерно (${cnt.join('/')}) — перемешай варианты`);
-        return e;
-      },
-      apply: d => { c.fos.tests[m.code] = d.tests.map(q => ({ q: q.q, options: q.options, answer: q.answer, t: q.t })); },
-    });
-    const f = examForms(m);
-    if (f['Э'] || f['ДЗ'] || f['З']) {
-      const nq = f['Э'] ? 25 : 20, nt = f['Э'] ? 12 : 10; // просим в промпте
-      const mq = f['Э'] ? 20 : 15, mt = f['Э'] ? 10 : 8;   // минимум (как в validate)
+    const NP = Math.ceil(FOS_MIN / FOS_PART); // число частей
+    const parts = c.fos._parts = c.fos._parts || {};
+    const prev = (base, k, field) => Array.from({ length: k - 1 }, (_, i) => ((parts[`${base}:${i + 1}`] || {})[field] || [])).flat();
+    // тест: части по FOS_PART вопросов, в сумме FOS_MIN; каждая часть видит вопросы предыдущих
+    for (let k = 1; k <= NP; k++) {
+      const id = `tests:${m.code}:${k}`;
       S.push({
-        id: `exam:${m.code}`, title: `Вопросы и задачи к экзамену ${m.code}`,
-        prompt: () => tpl('exam', { ...vars0, mdk_code: m.code, mdk_name: m.name, themes: themes(), forms: Object.keys(f).map(x => FORM_NAMES[x] || x).join(', '), nq, nt }),
-        check: d => { const e = []; if ((d.questions || []).length < mq) e.push(`questions: нужно не меньше ${mq} (лучше ${nq})`); if ((d.tasks || []).length < mt) e.push(`tasks: нужно не меньше ${mt} (лучше ${nt})`); Q.near(d.questions || [], 0.8).forEach(([a, b]) => e.push(`вопросы почти одинаковые: «${a}» / «${b}»`)); return e; },
-        apply: d => { c.fos.exams[m.code] = { questions: d.questions, tasks: d.tasks }; },
+        id, title: `Тест по ${m.code}, часть ${k} из ${NP} (${FOS_PART} вопросов)`,
+        prompt: () => tpl('tests', { ...vars0, mdk_code: m.code, mdk_name: m.name, themes: themes(), n: FOS_PART,
+          part_note: `Это часть ${k} из ${NP} (всего в тесте ${FOS_MIN} вопросов — по 2 на каждого обучающегося). Вопросы охватывают все темы.` +
+            (k > 1 ? ` Уже написаны вопросы (не повторяй их и не перефразируй):\n- ${prev(`tests:${m.code}`, k, 'tests').map(q => q.q).join('\n- ')}` : '') }),
+        check: d => {
+          const e = []; const T = d.tests || [];
+          if (T.length !== FOS_PART) e.push(`вопросов ${T.length}, нужно ровно ${FOS_PART}`);
+          T.forEach((q, i) => { if (!nonEmpty(q.q)) e.push(`вопрос ${i + 1}: нет текста`); if (!Array.isArray(q.options) || q.options.length !== 4 || new Set(q.options).size !== 4) e.push(`вопрос ${i + 1}: нужно 4 разных варианта`); if (!Number.isInteger(q.answer) || q.answer < 0 || q.answer > 3) e.push(`вопрос ${i + 1}: answer 0–3`); if (!Number.isInteger(q.t) || q.t < 1 || q.t > m.themes.length) e.push(`вопрос ${i + 1}: t — порядковый номер темы 1–${m.themes.length}`); });
+          T.forEach((q, i) => (q.options || []).forEach(o => { if (Q.VAGUE_OPTION.test(String(o))) e.push(`вопрос ${i + 1}: вариант «${o}» недопустим — только конкретные варианты`); }));
+          const before = prev(`tests:${m.code}`, k, 'tests').map(q => q.q);
+          Q.near([...before, ...T.map(q => q.q)], 0.85).filter(([, b]) => T.some(q => String(q.q).slice(0, 90) === b)).forEach(([a, b]) => e.push(`вопросы почти одинаковые: «${a}» / «${b}» — замени новый`));
+          const longest = T.filter(q => { const L = (q.options || []).map(o => String(o).length); return L.length === 4 && L[q.answer] === Math.max(...L) && L.filter(x => x === L[q.answer]).length === 1; }).length;
+          if (T.length >= 10 && longest / T.length > 0.6) e.push(`в ${longest} из ${T.length} вопросов правильный вариант самый длинный — ответ угадывается по длине; сделай неправильные варианты такой же длины и правдоподобными`);
+          const cnt = [0, 0, 0, 0]; T.forEach(q => { if (q.answer >= 0 && q.answer <= 3) cnt[q.answer]++; });
+          if (T.length && Math.max(...cnt) > Math.ceil(T.length * 0.45)) e.push(`правильные ответы распределены неравномерно (${cnt.join('/')}) — перемешай варианты`);
+          return e;
+        },
+        apply: d => {
+          parts[id] = { tests: d.tests.map(q => ({ q: q.q, options: q.options, answer: q.answer, t: q.t })) };
+          c.fos.tests[m.code] = Array.from({ length: NP }, (_, i) => (parts[`tests:${m.code}:${i + 1}`] || {}).tests || []).flat();
+        },
       });
     }
+    const f = examForms(m);
+    // билеты: по каждой промежуточной аттестации (Э/ДЗ/З) — FOS_MIN вопросов и FOS_MIN заданий, частями по FOS_PART
+    examKeys(m).forEach(ek => {
+      const base = `exam:${m.code}${ek.last ? '' : '@' + ek.sem}`;
+      const thList = ek.last ? m.themes.map(t => `${t.num} ${t.name}`) : studiedThemes(m, ek.sem);
+      for (let k = 1; k <= NP; k++) {
+        const id = `${base}:${k}`;
+        S.push({
+          id, title: `Вопросы и задания к ${FORM_NAMES[ek.form] || ek.form} ${m.code} (${ek.label}), часть ${k} из ${NP}`,
+          prompt: () => tpl('exam', { ...vars0, mdk_code: m.code, mdk_name: m.name, themes: thList.map((t, i) => `${i + 1}) ${t}`).join('; '),
+            forms: `${FORM_NAMES[ek.form] || ek.form}, ${ek.label}`, nq: FOS_PART, nt: FOS_PART,
+            part_note: `Это часть ${k} из ${NP}: всего нужно ${FOS_MIN} вопросов и ${FOS_MIN} заданий — по 2 на каждого обучающегося.` +
+              (k > 1 ? ` Уже написаны (не повторяй и не перефразируй):\nВопросы:\n- ${prev(base, k, 'questions').join('\n- ')}\nЗадания:\n- ${prev(base, k, 'tasks').join('\n- ')}` : '') }),
+          check: d => {
+            const e = [];
+            if ((d.questions || []).length !== FOS_PART) e.push(`questions: нужно ровно ${FOS_PART}`);
+            if ((d.tasks || []).length !== FOS_PART) e.push(`tasks: нужно ровно ${FOS_PART}`);
+            [...(d.questions || []), ...(d.tasks || [])].forEach((x, i) => { if (!nonEmpty(x)) e.push(`элемент ${i + 1}: пустая строка`); });
+            const pq = prev(base, k, 'questions'), pt = prev(base, k, 'tasks');
+            const own = (arr, b) => arr.some(x => String(x).slice(0, 90) === b);
+            Q.near([...pq, ...(d.questions || [])], 0.8).filter(([, b]) => own(d.questions || [], b)).forEach(([a, b]) => e.push(`вопросы почти одинаковые: «${a}» / «${b}»`));
+            // задания одного типа с разными исходными данными допустимы (индивидуальные варианты); полный повтор — нет
+            Q.near([...pt, ...(d.tasks || [])], 2).filter(([, b]) => own(d.tasks || [], b)).forEach(([a]) => e.push(`задание повторяется дословно: «${a}» — дай другие исходные данные или другое действие`));
+            return e;
+          },
+          apply: d => {
+            parts[id] = { questions: d.questions, tasks: d.tasks };
+            const all = Array.from({ length: NP }, (_, i) => parts[`${base}:${i + 1}`] || {});
+            c.fos.exams[ek.key] = { questions: all.flatMap(x => x.questions || []), tasks: all.flatMap(x => x.tasks || []) };
+          },
+        });
+      }
+    });
     if (f['ДР'] || f['КР']) {
       const lbl = (f['ДР'] || f['КР'])[0];
       const semIdx = m.sems.find(b => b.label === lbl).sem;
@@ -204,8 +238,8 @@ function listStages(ctx) {
   const upF = c.up.find(u => u.form);
   if (upF) S.push({
     id: 'upq', title: `Вопросы к зачёту по учебной практике ${upF.code}`,
-    prompt: () => tpl('upq', { ...vars0, code: upF.code, works: c.up.flatMap(u => u.works.map(w => w.name)).join('; ') }),
-    check: d => ((d.questions || []).length < 15 ? ['нужно 15–20 вопросов'] : []),
+    prompt: () => tpl('upq', { ...vars0, n: FOS_MIN, code: upF.code, works: c.up.flatMap(u => u.works.map(w => w.name)).join('; ') }),
+    check: d => { const e = []; const q = d.questions || []; if (q.length < FOS_MIN) e.push(`вопросов ${q.length}, нужно не меньше ${FOS_MIN} — по 2 на каждого обучающегося`); Q.near(q, 0.85).forEach(([a, b]) => e.push(`вопросы почти одинаковые: «${a}» / «${b}»`)); return e; },
     apply: d => { c.fos.up_questions = d.questions; },
   });
 

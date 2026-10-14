@@ -121,7 +121,9 @@
     "up_questions": [],
     "module_exam": {"parts": [], "conditions": "…", "variants": [], "checklist": [["ПК 5.1", "критерий", 8]], "protocol_title": "…", "protocol_checks": [["что", "как", "ожидается"]]}
   },
-  "_done": ["themes:МДК.05.01", "…"]
+  "_done": ["themes:МДК.05.01", "…"],
+  // ответы частей тестов и билетов (tests:МДК:1…3, exam:МДК:1…3); fos.tests и fos.exams собираются из них
+  "fos._parts": {"tests:МДК.05.01:1": {"tests": []}, "exam:МДК.05.01:1": {"questions": [], "tasks": []}}
 }
 ```
 

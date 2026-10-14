@@ -16,7 +16,9 @@ const { Packer } = require('docx');
 
 // ответ этапа, который дала бы нейросеть, — из эталонного наполнения
 function answer(id, ref) {
-  const [kind, code] = id.split(':');
+  const [kind, code0, part] = id.split(':');
+  const k = Number(part) || 1, P = 20, sl = a => (a || []).slice((k - 1) * P, k * P);
+  const [code, sem] = code0 ? code0.split('@') : [];
   const m = code && ref.mdk.find(x => x.code === code);
   switch (kind) {
     case 'themes': return { themes: m.themes.map(t => ({ num: t.num, theory: t.theory, codes: t.codes })) };
@@ -24,8 +26,12 @@ function answer(id, ref) {
     case 'up': return { works: ref.up[Number(code) - 1].works };
     case 'pp': return { works: ref.pp[Number(code) - 1].works };
     case 'program': return { equipment: ref.program.conditions.equipment, software: ref.program.conditions.software, lr_methods: ref.program.lr_methods };
-    case 'tests': return { tests: ref.fos.tests[code] };
-    case 'exam': return ref.fos.exams[code];
+    case 'tests': return { tests: sl(ref.fos.tests[code]) };
+    case 'exam': {
+      const m = ref.mdk.find(x => x.code === code);
+      const key = sem ? `${code}|${m.sems.find(b => String(b.sem) === sem).label}` : code;
+      return { questions: sl(ref.fos.exams[key].questions), tasks: sl(ref.fos.exams[key].tasks) };
+    }
     case 'cw': return ref.fos.control_works[code];
     case 'upq': return { questions: ref.fos.up_questions };
     case 'module_exam': return ref.fos.module_exam;
