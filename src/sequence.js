@@ -36,7 +36,8 @@ function themeLessons(th) {
   const T = th.theory || [];
   const W = th.works || [];
   const out = [];
-  const pairs = w => Array.from({ length: w.pairs }, (_, k) => ({ kind: 'P', n: w.n, title: w.title, part: k + 1, parts: w.pairs }));
+  // subtitles — конкретные задания пар внутри одной работы ПОП («Название: задание» вместо «(часть k)»)
+  const pairs = w => Array.from({ length: w.pairs }, (_, k) => ({ kind: 'P', n: w.n, title: w.title, part: k + 1, parts: w.pairs, sub: (w.subtitles || [])[k] }));
   if (!T.length) { W.forEach(w => out.push(...pairs(w))); return out; }
   const pos = W.map((w, j) => Math.ceil(((j + 1) * T.length) / W.length));
   T.forEach((t, i) => {
@@ -74,7 +75,13 @@ function mdkBlocks(m) {
 
 // Подпись практического занятия: «Практическая работа № N. Название (часть k)»
 function practiceLabel(l) {
-  return `Практическая работа № ${l.pw}. ${l.title.replace(/\.\s*$/, '')}${l.parts > 1 ? ` (часть ${l.part})` : ''}`;
+  return `Практическая работа № ${l.pw}. ${pairTitle(l)}`;
+}
+
+function pairTitle(l) {
+  const t = l.title.replace(/\.\s*$/, '');
+  if (l.sub) return `${t}: ${l.sub}`;
+  return `${t}${l.parts > 1 ? ` (часть ${l.part})` : ''}`;
 }
 
 // Номера практических работ (по парам) для каждой работы ПОП: { n: [pw, ...] }
@@ -84,4 +91,4 @@ function pwMap(m) {
   return map;
 }
 
-module.exports = { LESSON, distribute, themeLessons, mdkBlocks, practiceLabel, pwMap };
+module.exports = { LESSON, distribute, themeLessons, mdkBlocks, practiceLabel, pairTitle, pwMap };

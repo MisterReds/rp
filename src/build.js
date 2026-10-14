@@ -8,7 +8,7 @@ const { D, mm, P_MARG, P_W, L_MARG, L_W, C, p, center, caption, h1, h2, h3, bull
 const { Document, Packer, Paragraph, TextRun, TableRow, Footer, PageNumber, AlignmentType, PageOrientation, VerticalAlign } = D;
 const { loadPlan, semLabel } = require('./plan.js');
 const { validate, parseCodes } = require('./validate.js');
-const { LESSON, mdkBlocks, practiceLabel, themeLessons } = require('./sequence.js');
+const { LESSON, mdkBlocks, practiceLabel, pairTitle, themeLessons } = require('./sequence.js');
 const PP_DAY = 6;
 
 const LETTERS = ['а', 'б', 'в', 'г'];
@@ -71,7 +71,7 @@ function buildDocument(ctx) {
   const OK_CODES = OK.map(x => x[0]);
   const okAllStr = okStr(OK_CODES);
   const LR = vosp.lr;
-  const okLr = vosp.ok_lr;
+  const okLr = { ...vosp.ok_lr, ...(pj.ok_lr_override || {}) };
   const LR_ALL = Object.keys(LR).map(Number).sort((a, b) => a - b);
   const lrFromOk = oks => uniq(oks.flatMap(o => okLr[o] || [])).sort((a, b) => a - b);
   const lrStr = arr => (arr.length ? 'ЛР ' + ranges(arr) : '');
@@ -131,7 +131,8 @@ function buildDocument(ctx) {
   const listCell = (items, w) => cell((items || []).map((t, i, a) => t.replace(/[;.]\s*$/, '') + (i === a.length - 1 ? '.' : ';')), w);
   const wR = widths(P_W, [20, 0, 0, 0], 1);
   { const rest = P_W - wR[0]; wR[1] = Math.floor(rest / 3); wR[2] = Math.floor(rest / 3); wR[3] = rest - wR[1] - wR[2]; }
-  const resultsTable = table(wR, [hdr(['Код ОК, ПК', 'Уметь', 'Знать', 'Владеть навыками'], wR),
+  const w3x = widths(P_W, [45, 0], 1);
+  const resultsTable = pop.results_simple ? null : table(wR, [hdr(['Код ОК, ПК', 'Уметь', 'Знать', 'Владеть навыками'], wR),
     ...OK_CODES.map(o => new TableRow({ children: [cell(o, wR[0]), listCell((res.ok[o] || {}).um, wR[1]), listCell((res.ok[o] || {}).zn, wR[2]), listCell((res.ok[o] || {}).nav, wR[3])] })),
     ...pkCodes.map(k => new TableRow({ children: [cell(k, wR[0]), listCell((res.pk[k] || {}).um, wR[1]), listCell((res.pk[k] || {}).zn, wR[2]), listCell((res.pk[k] || {}).nav, wR[3])] }))]);
 
@@ -191,8 +192,9 @@ function buildDocument(ctx) {
       new TableRow({ children: [cell(c.meta.vd, w2[0], { bold: true }), cell(c.meta.pm_name, w2[1], { bold: true })] }),
       ...PK.map(([k, n]) => new TableRow({ children: [cell(k, w2[0]), cell(n, w2[1])] }))]),
     h3('1.1.3. В результате освоения программы профессионального модуля студент должен:'),
-    p(pop.results_intro, { after: 120 }),
-    resultsTable,
+    ...(pop.results_simple ? [table(w3x, [
+      ['Иметь практический опыт', pop.results_simple.opyt], ['уметь', pop.results_simple.um], ['знать', pop.results_simple.zn],
+    ].map(([k, v]) => new TableRow({ children: [cell(k, w3x[0], { bold: true }), cell(v || '', w3x[1])] })))] : [p(pop.results_intro, { after: 120 }), resultsTable]),
     h3('1.1.4. В процессе изучения профессионального модуля обучающийся должен достигать следующих личностных результатов в соответствии с программой воспитания по специальности:'),
     table(w2, [hdr(['Код ЛР из программы воспитания', 'Наименование личностных результатов'], w2), ...LR_ALL.map(n => new TableRow({ children: [cell('ЛР ' + n, w2[0]), cell(LR[n], w2[1])] }))]),
     p(`Источник: ${vosp.title}.`, { size: 22, noIndent: true, before: 80 }),
@@ -472,7 +474,7 @@ function buildDocument(ctx) {
       f5.push(h3(`5.${sn}.${bi + 1}. ${b.label}`));
       const ps = b.groups.flatMap(g => g.lessons.filter(l => l.kind === 'P'));
       f5.push(sub('Текущий контроль. Практические работы'));
-      if (ps.length) f5.push(table(wPW, [hdr(['№ практической работы', 'Тема практической работы', 'Часов'], wPW), ...ps.map(l => new TableRow({ children: [cell(String(l.pw), wPW[0], { align: C }), cell(`${l.title.replace(/\.\s*$/, '')}${l.parts > 1 ? ` (часть ${l.part})` : ''}`, wPW[1]), cell(String(LESSON), wPW[2], { align: C })] }))]));
+      if (ps.length) f5.push(table(wPW, [hdr(['№ практической работы', 'Тема практической работы', 'Часов'], wPW), ...ps.map(l => new TableRow({ children: [cell(String(l.pw), wPW[0], { align: C }), cell(pairTitle(l), wPW[1]), cell(String(LESSON), wPW[2], { align: C })] }))]));
       else f5.push(p('Практические работы в семестре не предусмотрены.'));
       const T = (fos.tests[m.code] || []).filter(q => q.t && themeSem[q.t - 1] === b.sem);
       f5.push(sub('Текущий контроль. Тестовые задания'));

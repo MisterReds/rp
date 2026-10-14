@@ -87,7 +87,7 @@ function validate(content, opts = {}) {
       if (dup.length) W(`${m.code}: повторяются названия занятий: ${[...new Set(dup)].slice(0, 5).join('; ')}`);
       if (m.course_project) {
         const cp = m.course_project;
-        if ((cp.topics || []).length < 10) E(`${m.code}: курсовой проект — нужно не меньше 10 тем`);
+        if (!cp.topics_ref && (cp.topics || []).length < 10) E(`${m.code}: курсовой проект — нужно не меньше 10 тем`);
         if (sumH(cp.stages) !== cp.hours) E(`${m.code}: этапы курсового проекта дают ${sumH(cp.stages)} ч, по плану ${cp.hours} ч`);
       }
     });
@@ -101,7 +101,7 @@ function validate(content, opts = {}) {
       let s = 0;
       u.works.forEach((w, i) => {
         if (!nonEmpty(w.name)) E(`${path}: вид работ №${i + 1} без названия`);
-        if (pop && pop.up_works && !pop.up_works.includes(w.name)) E(`${path}: вид работ «${w.name}» отсутствует в ПОП (названия видов работ берутся из ПОП без изменений)`);
+        if (pop && (pop.up_works || []).length && !pop.up_works.includes(w.name)) E(`${path}: вид работ «${w.name}» отсутствует в ПОП (названия видов работ берутся из ПОП без изменений)`);
         (w.tasks || []).forEach(t => { if (!(t[1] > 0) || t[1] % LESSON) E(`${path}: «${t[0]}» — ${t[1]} ч, должно быть кратно ${LESSON}`); });
         parseCodes(w.codes).pk.forEach(x => { if (!pkList.includes(x)) E(`${path}: ${x} не относится к модулю`); });
         s += sumH(w.tasks);
@@ -118,7 +118,7 @@ function validate(content, opts = {}) {
       const days = u.works.reduce((a, w) => a + (w.days || []).length, 0);
       if (days * PP_DAY !== u.hours) E(`${path}: ${days} дн. × ${PP_DAY} ч = ${days * PP_DAY} ч, по плану ${u.hours} ч`);
       u.works.forEach(w => {
-        if (pop && pop.pp_works && !pop.pp_works.includes(w.name)) E(`${path}: вид работ «${w.name}» отсутствует в ПОП`);
+        if (pop && (pop.pp_works || []).length && !pop.pp_works.includes(w.name)) E(`${path}: вид работ «${w.name}» отсутствует в ПОП`);
         (w.days || []).forEach(d => { if (!nonEmpty(d)) E(`${path}: пустой день в «${w.name}»`); if (!u.form && /зач[её]т/i.test(d)) E(`${path}: аттестация по практике не предусмотрена, а в дне «${d}» указан зачёт`); });
         parseCodes(w.codes).pk.forEach(x => { if (!pkList.includes(x)) E(`${path}: ${x} не относится к модулю`); });
       });
