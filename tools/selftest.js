@@ -58,6 +58,8 @@ async function run(dir) {
     fresh.apply(data);
   }
   const v = validate(ctx.content, { pop: ctx.pop });
+  const L = require('./lint_content.js').lint(ctx.content);
+  L.errors.forEach(e => v.errors.push('lint: ' + e));
   const doc = buildDocument(ctx).doc;
   const buf = await Packer.toBuffer(doc);
   const out = path.join(os.tmpdir(), `selftest_${path.basename(dir)}.docx`);

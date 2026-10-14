@@ -7,6 +7,7 @@ const { parseCodes, examForms, OK_CODES } = require('./validate.js');
 const { LESSON, mdkBlocks } = require('./sequence.js');
 const { FORM_NAMES } = require('./plan.js');
 
+const Q = require('../tools/lint_content.js'); // общие проверки качества текстов (повторы, «части», варианты тестов)
 const PROMPTS = path.join(__dirname, '..', 'prompts');
 const tpl = (name, vars) => fs.readFileSync(path.join(PROMPTS, name + '.md'), 'utf8').replace(/\{\{(\w+)\}\}/g, (_, k) => (vars[k] !== undefined ? String(vars[k]) : ''));
 const nonEmpty = s => typeof s === 'string' && s.trim().length > 0;
@@ -62,10 +63,15 @@ function listStages(ctx) {
       d.themes.forEach((th, i) => {
         const t = m.themes[i]; const w = `${t.num} ${t.name}`;
         if (!Array.isArray(th.theory) || th.theory.length !== t.theory_count) E(`${w}: нужно ровно ${t.theory_count} теоретических занятий`);
-        (th.theory || []).forEach(x => { if (!nonEmpty(x)) E(`${w}: пустое название занятия`); });
+        (th.theory || []).forEach(x => {
+          if (!nonEmpty(x)) return E(`${w}: пустое название занятия`);
+          if (Q.LESSON_BAD.test(x.trim())) E(`${w}: «${x}» — не пиши «Часть/Продолжение/Повторение/Лекция N», назови дидактическую единицу`);
+          if (Q.norm(x) === Q.norm(t.name)) E(`${w}: «${x}» повторяет название темы — назови конкретную дидактическую единицу`);
+        });
         checkCodes(th.codes, pk, w, E, true, okList);
         if (!parseCodes(th.codes).ok.length) E(`${w}: в codes нет ОК`);
       });
+      Q.dup(d.themes.flatMap(th => th.theory || [])).forEach(x => E(`занятие «${x}» повторяется — названия внутри МДК не повторяются`));
       return e;
     },
     apply: d => { d.themes.forEach((th, i) => { m.themes[i].theory = th.theory; m.themes[i].codes = th.codes; }); },
@@ -107,6 +113,7 @@ function listStages(ctx) {
         const used = new Set([...c.up.slice(0, ui).flatMap(x => (x.works || []).map(w => w.name)), ...d.works.map(w => w.name)]);
         upWorks.forEach(n => { if (!used.has(n)) E(`не включён вид работ ПОП «${n}»`); });
       }
+      Q.dup(d.works.flatMap(w => (w.tasks || []).map(t => Array.isArray(t) ? t[0] : ''))).forEach(x => E(`задание «${x}» повторяется — каждое задание своё`));
       if (s !== u.hours) E(`сумма часов ${s}, нужно ровно ${u.hours}`);
       return e;
     },
@@ -129,6 +136,7 @@ function listStages(ctx) {
         checkCodes(w.codes, pk, `«${w.name}»`, E, false, okList);
       });
       (pop.pp_works || []).forEach(n => { if (!d.works.some(w => w.name === n)) E(`не включён вид работ ПОП «${n}»`); });
+      Q.dup(d.works.flatMap(w => w.days || [])).forEach(x => E(`день «${x}» повторяется — каждый день своё содержание`));
       const seen = new Set(d.works.flatMap(w => parseCodes(w.codes).pk));
       pk.forEach(k => { if (!seen.has(k)) E(`${k} не встречается ни в одном виде работ`); });
       return e;
@@ -160,6 +168,10 @@ function listStages(ctx) {
         const e = []; const T = d.tests || [];
         if (T.length < 15 || T.length > 40) e.push(`вопросов ${T.length}, нужно ${N} (допустимо 15–40)`);
         T.forEach((q, i) => { if (!nonEmpty(q.q)) e.push(`вопрос ${i + 1}: нет текста`); if (!Array.isArray(q.options) || q.options.length !== 4 || new Set(q.options).size !== 4) e.push(`вопрос ${i + 1}: нужно 4 разных варианта`); if (!Number.isInteger(q.answer) || q.answer < 0 || q.answer > 3) e.push(`вопрос ${i + 1}: answer 0–3`); if (!Number.isInteger(q.t) || q.t < 1 || q.t > m.themes.length) e.push(`вопрос ${i + 1}: t — порядковый номер темы 1–${m.themes.length}`); });
+        T.forEach((q, i) => (q.options || []).forEach(o => { if (Q.VAGUE_OPTION.test(String(o))) e.push(`вопрос ${i + 1}: вариант «${o}» недопустим — только конкретные варианты`); }));
+        Q.near(T.map(q => q.q), 0.85).forEach(([a, b]) => e.push(`вопросы почти одинаковые: «${a}» / «${b}» — замени один`));
+        const longest = T.filter(q => { const L = (q.options || []).map(o => String(o).length); return L.length === 4 && L[q.answer] === Math.max(...L) && L.filter(x => x === L[q.answer]).length === 1; }).length;
+        if (T.length >= 10 && longest / T.length > 0.6) e.push(`в ${longest} из ${T.length} вопросов правильный вариант самый длинный — ответ угадывается по длине; сделай неправильные варианты такой же длины и правдоподобными`);
         const cnt = [0, 0, 0, 0]; T.forEach(q => { if (q.answer >= 0 && q.answer <= 3) cnt[q.answer]++; });
         if (T.length && Math.max(...cnt) > Math.ceil(T.length * 0.45)) e.push(`правильные ответы распределены неравномерно (${cnt.join('/')}) — перемешай варианты`);
         return e;
@@ -173,7 +185,7 @@ function listStages(ctx) {
       S.push({
         id: `exam:${m.code}`, title: `Вопросы и задачи к экзамену ${m.code}`,
         prompt: () => tpl('exam', { ...vars0, mdk_code: m.code, mdk_name: m.name, themes: themes(), forms: Object.keys(f).map(x => FORM_NAMES[x] || x).join(', '), nq, nt }),
-        check: d => { const e = []; if ((d.questions || []).length < mq) e.push(`questions: нужно не меньше ${mq} (лучше ${nq})`); if ((d.tasks || []).length < mt) e.push(`tasks: нужно не меньше ${mt} (лучше ${nt})`); return e; },
+        check: d => { const e = []; if ((d.questions || []).length < mq) e.push(`questions: нужно не меньше ${mq} (лучше ${nq})`); if ((d.tasks || []).length < mt) e.push(`tasks: нужно не меньше ${mt} (лучше ${nt})`); Q.near(d.questions || [], 0.8).forEach(([a, b]) => e.push(`вопросы почти одинаковые: «${a}» / «${b}»`)); return e; },
         apply: d => { c.fos.exams[m.code] = { questions: d.questions, tasks: d.tasks }; },
       });
     }
@@ -216,6 +228,8 @@ function listStages(ctx) {
     },
     apply: d => { c.fos.module_exam = { parts: d.parts, conditions: d.conditions, variants: d.variants, checklist: d.checklist.map(r => [r[0], r[1], Number(r[2])]), protocol_title: d.protocol_title || '', protocol_checks: d.protocol_checks }; },
   });
+  // общая проверка для всех этапов: запрещённые слова, заглушки, служебные фразы нейросети
+  S.forEach(st => { const own = st.check; st.check = d => [...own(d), ...Q.bannedIn(d)]; });
   return S;
 }
 

@@ -22,7 +22,8 @@ rpgen — рабочая программа профессионального �
   next <project.json> [--only ID]  ручной режим: записать промпт следующего этапа в файл для вставки в чат
   import <project.json> <ответ.json> [--stage ID]
                                    ручной режим: проверить ответ нейросети и записать его в content.json
-  validate <project.json>          проверить наполнение
+  validate <project.json>          проверить наполнение (часы, ПОП, коды, формы)
+  lint <project.json>              проверить качество текстов (повторы, заглушки, «части», ключи тестов)
   build <project.json> [--force]   собрать .docx по шаблону СПЭТ
 `;
 
@@ -147,6 +148,15 @@ async function main() {
     v.warnings.forEach(w => console.log('предупреждение: ' + w));
     console.log(v.errors.length ? `Итого ошибок: ${v.errors.length}` : 'Ошибок нет.');
     process.exitCode = v.errors.length ? 1 : 0;
+    return;
+  }
+
+  if (cmd === 'lint') {
+    const r = require('../tools/lint_content.js').lint(ctx.content);
+    r.errors.forEach(e => console.log('ОШИБКА: ' + e));
+    r.checks.forEach(e => console.log('ПРОВЕРЬ: ' + e));
+    console.log(`Ошибок: ${r.errors.length}; мест для проверки человеком: ${r.checks.length}`);
+    process.exitCode = r.errors.length ? 1 : 0;
     return;
   }
 
