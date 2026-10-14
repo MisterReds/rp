@@ -130,6 +130,7 @@ function listStages(ctx) {
       if (!Array.isArray(d.works) || !d.works.length) return ['нет works'];
       const days = d.works.reduce((a, w) => a + (w.days || []).length, 0);
       if (days !== u.days) E(`всего дней ${days}, нужно ровно ${u.days}`);
+      d.works.forEach(w => (w.days || []).forEach(x => { if (typeof x !== 'string') E(`«${w.name}»: каждый день — строка с содержанием работы за день`); }));
       d.works.forEach(w => {
         if ((pop.pp_works || []).length && !pop.pp_works.includes(w.name)) E(`вид работ «${w.name}» не совпадает дословно с ПОП`);
         (w.days || []).forEach(x => { if (!nonEmpty(x)) E(`пустой день в «${w.name}»`); if (!u.form && /зач[её]т/i.test(x)) E(`«${x}»: зачёт по производственной практике не проводится`); });

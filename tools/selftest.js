@@ -55,7 +55,10 @@ async function run(dir) {
     m.themes.forEach((t, j) => { const r = ref.mdk[i].themes[j]; if (!r) return; t.theory_count = r.theory.length; t.works = JSON.parse(JSON.stringify(r.works)); });
   });
   const fails = [];
+  // практики, перенесённые из готовых программ практик (_practice_source), этапами не генерируются — переносятся как есть
+  if (ref._practice_source) { ctx.content.up = ref.up; ctx.content.pp = ref.pp; }
   for (const st of listStages(ctx)) {
+    if (ref._practice_source && /^(up|pp):/.test(st.id)) continue;
     const fresh = listStages(ctx).find(s => s.id === st.id);
     const data = JSON.parse(JSON.stringify(answer(st.id, ref)));
     fresh.prompt(); // промпт должен собираться без ошибок

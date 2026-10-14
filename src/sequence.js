@@ -91,4 +91,10 @@ function pwMap(m) {
   return map;
 }
 
-module.exports = { LESSON, distribute, themeLessons, mdkBlocks, practiceLabel, pairTitle, pwMap };
+// Пункты производственной практики: строка = 1 день (6 ч) или [текст, часы] (часы кратны 6, как в программах практик техникума)
+const PP_H = 6;
+const ppItems = w => (w.days || []).map(d => (Array.isArray(d) ? [d[0], Number(d[1])] : [d, PP_H]));
+const ppText = w => ppItems(w).map(x => x[0]);
+const ppHours = w => ppItems(w).reduce((a, x) => a + x[1], 0);
+
+module.exports = { ppItems, ppText, ppHours, LESSON, distribute, themeLessons, mdkBlocks, practiceLabel, pairTitle, pwMap };

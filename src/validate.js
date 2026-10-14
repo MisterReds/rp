@@ -1,7 +1,7 @@
 // Строгая проверка наполнения перед сборкой документа.
 // Ошибки (errors) блокируют сборку, предупреждения (warnings) — нет.
 'use strict';
-const { LESSON, mdkBlocks } = require('./sequence.js');
+const { LESSON, mdkBlocks , ppItems, ppText, ppHours } = require('./sequence.js');
 const PP_DAY = 6;
 
 const OK_CODES = ['ОК 01', 'ОК 02', 'ОК 03', 'ОК 04', 'ОК 05', 'ОК 06', 'ОК 07', 'ОК 08', 'ОК 09'];
@@ -127,11 +127,12 @@ function validate(content, opts = {}) {
     content.pp.forEach(u => {
       const path = `${u.code}, ${u.label}`;
       if (!u.works || !u.works.length) { E(`${path}: нет видов работ`); return; }
-      const days = u.works.reduce((a, w) => a + (w.days || []).length, 0);
-      if (days * PP_DAY !== u.hours) E(`${path}: ${days} дн. × ${PP_DAY} ч = ${days * PP_DAY} ч, по плану ${u.hours} ч`);
+      const hrs = u.works.reduce((a, w) => a + ppHours(w), 0);
+      if (hrs !== u.hours) E(`${path}: пункты практики дают ${hrs} ч, по плану ${u.hours} ч`);
+      u.works.forEach(w => ppItems(w).forEach(([t, h]) => { if (!(h > 0) || h % PP_DAY) E(`${path}: «${String(t).slice(0, 60)}» — ${h} ч, должно быть кратно ${PP_DAY} (дни по ${PP_DAY} ч)`); }));
       u.works.forEach(w => {
         if (pop && (pop.pp_works || []).length && !pop.pp_works.includes(w.name)) E(`${path}: вид работ «${w.name}» отсутствует в ПОП`);
-        (w.days || []).forEach(d => { if (!nonEmpty(d)) E(`${path}: пустой день в «${w.name}»`); if (!u.form && /зач[её]т/i.test(d)) E(`${path}: аттестация по практике не предусмотрена, а в дне «${d}» указан зачёт`); });
+        ppText(w).forEach(d => { if (!nonEmpty(d)) E(`${path}: пустой день в «${w.name}»`); if (!u.form && /зач[её]т/i.test(d)) E(`${path}: аттестация по практике не предусмотрена, а в дне «${d}» указан зачёт`); });
         parseCodes(w.codes).pk.forEach(x => { if (!pkList.includes(x)) E(`${path}: ${x} не относится к модулю`); });
       });
     });

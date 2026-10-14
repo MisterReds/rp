@@ -8,7 +8,7 @@ const { D, mm, P_MARG, P_W, L_MARG, L_W, C, p, center, caption, h1, h2, h3, bull
 const { Document, Packer, Paragraph, TextRun, TableRow, Footer, PageNumber, AlignmentType, PageOrientation, VerticalAlign } = D;
 const { loadPlan, semLabel } = require('./plan.js');
 const { validate, parseCodes } = require('./validate.js');
-const { LESSON, mdkBlocks, practiceLabel, pairTitle, themeLessons } = require('./sequence.js');
+const { LESSON, mdkBlocks, practiceLabel, pairTitle, themeLessons, ppItems, ppHours } = require('./sequence.js');
 const PP_DAY = 6;
 
 const LETTERS = ['а', 'б', 'в', 'г'];
@@ -276,33 +276,62 @@ function buildDocument(ctx) {
     rows.push(lineRow(`Всего по ${m.code}`, m.T + m.P + (m.K || 0), { bold: true }));
     ktp.push(table(wC, rows));
   });
+  // КТП практик — по образцу рабочих программ практик техникума (РП УП/ПП ПМ.07 ОП-2302ис, ПМ.05/06 ОП-2202ис):
+  // «Наименование разделов, тем | Содержание … практики | Объем часов | Коды»; строка раздела «Раздел N. … | Содержание | часы | коды»;
+  // ниже — темы (если у видов работ задан section) или пункты раздела; сквозная нумерация пунктов; итоговая строка «ИТОГО».
+  // Пункты УП — с часами из задания (кратно 2), пункты ПП — дни по 6 ч или [текст, часы кратно 6].
   const practiceKtp = (arr, kind, num) => {
     if (!arr.length) return;
     const title = kind === 'up' ? `Содержание учебной практики ${arr[0].code}` : `Содержание производственной практики ${arr[0].code}`;
     ktp.push(h3(`2.2.${num}. ${title}`));
-    const rows = ktpHead();
-    let n = 0, v = 0;
+    const wP = widths(L_W, [62, 0, 20, 45], 1);
+    const head = [hdr(['Наименование разделов, тем', kind === 'up' ? 'Содержание учебной практики' : 'Содержание производственной практики', 'Объем часов', 'Коды компетенции, формированию которых способствует элемент программы'], wP),
+      new TableRow({ tableHeader: true, children: ['1', '2', '3', '4'].map((t, i) => cell([cp(t, { italics: true })], wP[i], { align: C })) })];
+    const rows = [...head];
+    const items = w => (kind === 'up' ? (w.tasks || []).map(([t, h]) => [t, h]) : ppItems(w));
+    const wh = w => items(w).reduce((a, x) => a + x[1], 0);
+    const pkOf = ws => uniq(ws.flatMap(w => parseCodes(w.codes).pk)).sort();
+    let n = 0;
+    const itemRow = (lead, [t, h], codes, leadCell) => new TableRow({ children: [
+      ...(leadCell ? [leadCell] : []),
+      cell(`${++n}. ${t}`, wP[1]), cell(String(h), wP[2], { align: C }), cell(codes, wP[3]),
+    ] });
     arr.forEach(u => {
-      rows.push(fullRow(u.label, { bold: true, align: C, shade: 'F2F2F2' }));
-      rows.push(fullRow(kind === 'up' ? `${u.hours} ч (${u.hours / LESSON} занятий по ${LESSON} ч)` : `${u.hours} ч (${u.days} дней по ${PP_DAY} ч)`, { italics: true }));
+      if (arr.length > 1) rows.push(new TableRow({ children: [cell(u.label, L_W, { colSpan: 4, bold: true, align: C, shade: 'F2F2F2' })] }));
+      // группы: раздел → виды работ (темы) с section, либо вид работ сам по себе — раздел с пунктами
+      const groups = [];
       u.works.forEach(w => {
-        v += 1;
-        const lines = [];
-        if (kind === 'up') w.tasks.forEach(([t, h]) => { const k = h / LESSON; for (let i = 1; i <= k; i++) lines.push([k > 1 ? `${t} (часть ${i})` : t, LESSON]); });
-        else w.days.forEach(d => lines.push([d, PP_DAY]));
-        const pk = parseCodes(w.codes).pk;
-        rows.push(new TableRow({ children: [
-          cell([cp(`Вид работ ${v}. ${cap(w.name)}`, { bold: true })], wC[0], { rowSpan: 1 + lines.length }),
-          cell([cp('Содержание работ:', { bold: true })], wC[1]), cell('', wC[2]),
-          cell(codesBlock(pk, allOk, lrFromOk(allOk)), wC[3], { rowSpan: 1 + lines.length }),
-        ] }));
-        lines.forEach(([t, h]) => rows.push(new TableRow({ children: [cell(`${++n}. ${t}`, wC[1]), cell(String(h), wC[2], { align: C })] })));
+        const key = w.section || null;
+        const g = key && groups.find(x => x.section === key);
+        if (g) g.works.push(w); else groups.push({ section: key, works: [w] });
       });
-      if (u.form) rows.push(lineRow(`Промежуточная аттестация в форме ${formGen(u.form)}`, '—', { italics: true }));
-      else if (kind === 'pp') rows.push(lineRow('По окончании практики обучающийся оформляет и сдаёт отчёт по практике', '—', { italics: true }));
+      groups.forEach(g => {
+        const gpk = pkOf(g.works);
+        const secTitle = g.section || cap(g.works[0].name);
+        const secCodes = codesBlock(gpk, allOk, lrFromOk(allOk));
+        if (g.section) {
+          rows.push(new TableRow({ children: [cell([cp(secTitle, { bold: true })], wP[0]), cell([cp('Содержание', { bold: true })], wP[1]), cell(String(g.works.reduce((a, w) => a + wh(w), 0)), wP[2], { bold: true, align: C }), cell(secCodes, wP[3])] }));
+          g.works.forEach(w => {
+            const it = items(w); const codes = pkStr(parseCodes(w.codes).pk);
+            it.forEach((x, i) => rows.push(itemRow(null, x, codes, i === 0 ? cell([cp(cap(w.name), { bold: true })], wP[0], { rowSpan: it.length }) : null)));
+          });
+        } else {
+          const w = g.works[0]; const it = items(w);
+          if (it.length === 1 && !/^Раздел/i.test(w.name)) { // отдельная строка, например «Дифференцированный зачёт | 7. … | 2 | коды»
+            rows.push(itemRow(null, it[0], pkStr(parseCodes(w.codes).pk), cell([cp(cap(w.name), { bold: true })], wP[0])));
+            return;
+          }
+          // без тем: заголовок раздела объединён по вертикали со всеми его пунктами (как в РП практик ПМ.05/06)
+          rows.push(new TableRow({ children: [cell([cp(secTitle, { bold: true })], wP[0], { rowSpan: 1 + it.length }), cell([cp('Содержание', { bold: true })], wP[1], { align: C }), cell(String(wh(w)), wP[2], { bold: true, align: C }), cell(secCodes, wP[3], { rowSpan: 1 + it.length })] }));
+          it.forEach(x => rows.push(new TableRow({ children: [cell(`${++n}. ${x[0]}`, wP[1]), cell(String(x[1]), wP[2], { align: C })] })));
+        }
+      });
+      const allText = u.works.flatMap(w => items(w).map(x => x[0])).join(' ');
+      if (u.form && !/зач[её]т|экзамен/i.test(allText)) rows.push(new TableRow({ children: [cell([cp(`Промежуточная аттестация в форме ${formGen(u.form)}`, { italics: true })], wP[0] + wP[1], { colSpan: 2 }), cell('—', wP[2], { align: C }), cell('', wP[3])] }));
+      if (!u.form && kind === 'pp' && !/отч[её]т/i.test(allText)) rows.push(new TableRow({ children: [cell([cp('По окончании практики обучающийся оформляет и сдаёт отчёт по практике', { italics: true })], wP[0] + wP[1], { colSpan: 2 }), cell('—', wP[2], { align: C }), cell('', wP[3])] }));
     });
-    rows.push(lineRow(`Всего по ${arr[0].code}`, arr.reduce((a, x) => a + x.hours, 0), { bold: true }));
-    ktp.push(table(wC, rows));
+    rows.push(new TableRow({ children: [cell([cp('ИТОГО', { bold: true })], wP[0] + wP[1], { colSpan: 2 }), cell(String(arr.reduce((a, x) => a + x.hours, 0)), wP[2], { bold: true, align: C }), cell('', wP[3])] }));
+    ktp.push(table(wP, rows));
   };
   practiceKtp(c.up, 'up', c.mdk.length + 1);
   practiceKtp(c.pp, 'pp', c.mdk.length + 2);
@@ -514,7 +543,7 @@ function buildDocument(ctx) {
 
   // учебная практика
   const wUW = widths(P_W, [12, 0, 32, 16], 1);
-  const worksTable = (u, kind) => table(wUW, [hdr(['№', 'Вид работ', 'ПК', 'Часов'], wUW), ...u.works.map((w, i) => new TableRow({ children: [cell(String(i + 1), wUW[0], { align: C }), cell(cap(w.name), wUW[1]), cell(pkStr(parseCodes(w.codes).pk), wUW[2]), cell(String(kind === 'up' ? w.tasks.reduce((a, t) => a + t[1], 0) : w.days.length * PP_DAY), wUW[3], { align: C })] }))]);
+  const worksTable = (u, kind) => table(wUW, [hdr(['№', 'Вид работ', 'ПК', 'Часов'], wUW), ...u.works.map((w, i) => new TableRow({ children: [cell(String(i + 1), wUW[0], { align: C }), cell(cap(w.name), wUW[1]), cell(pkStr(parseCodes(w.codes).pk), wUW[2]), cell(String(kind === 'up' ? w.tasks.reduce((a, t) => a + t[1], 0) : ppHours(w)), wUW[3], { align: C })] }))]);
   const wA = widths(P_W, [10, 0, 30, 40], 1);
   const sig = t => p(t, { noIndent: true, before: 120 });
   const upPK = workCodes(c.up);

@@ -54,7 +54,7 @@ function lint(c) {
     dup(all).forEach(x => E(`${u.code} ${u.label}: задание «${x}» повторяется — каждое задание своё`));
   });
   c.pp.forEach(u => {
-    const all = (u.works || []).flatMap(w => w.days || []);
+    const all = (u.works || []).flatMap(w => (w.days || []).map(d => (Array.isArray(d) ? d[0] : d)));
     dup(all).forEach(x => E(`${u.code} ${u.label}: день «${x}» повторяется`));
     if (!u.form && /зач[её]т|аттестаци/i.test(all.join(' '))) E(`${u.code}: в днях производственной практики упомянут зачёт/аттестация — она не проводится`);
   });
