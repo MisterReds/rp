@@ -109,6 +109,12 @@ def main():
             if 'соотносятся с планируемыми результатами' in t and not out['results_intro']:
                 out['results_intro'] = t
             low = t.lower()
+            if 'тематика курсов' in low:
+                mode = 'course'; continue
+            if re.match(r'^3\.\s*Услови', t):
+                mode = None; continue
+            if mode == 'course':
+                out['course_topics'].append(re.sub(r'^\d+\.\s*', '', t)); continue
             if re.match(r'^3\.1\.?\s', t):
                 mode = 'rooms'; continue
             if re.match(r'^3\.2\.?\s', t):
@@ -179,6 +185,9 @@ def main():
                     theme = None
                     continue
                 if first.startswith('Курсов') or any(p.startswith('Тематика курсов') for p in rest):
+                    hm = re.search(r'(\d+)\s*час', first)
+                    if sec is not None and hm:
+                        sec['course_hours'] = int(hm.group(1))
                     theme = None
                     continue
                 if first.startswith('Тема') and sec is not None:

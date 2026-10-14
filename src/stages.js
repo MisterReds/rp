@@ -30,11 +30,11 @@ function contextBlock(ctx) {
   return lines.join('\n');
 }
 
-function checkCodes(codes, pkList, where, E, needPk = true) {
+function checkCodes(codes, pkList, where, E, needPk = true, okList = OK_CODES) {
   const x = parseCodes(codes);
   if (needPk && !x.pk.length) E(`${where}: в codes нет ПК`);
   x.pk.forEach(k => { if (!pkList.includes(k)) E(`${where}: ${k} не относится к модулю (допустимы ${pkList.join(', ')})`); });
-  x.ok.forEach(k => { if (!OK_CODES.includes(k)) E(`${where}: неизвестный код ${k}`); });
+  x.ok.forEach(k => { if (!okList.includes(k)) E(`${where}: неизвестный код ${k}`); });
 }
 
 // Темы ПОП, изученные к концу семестра semIdx
@@ -51,7 +51,7 @@ function listStages(ctx) {
   const hints = ctx.project.hints || {};
   const S = [];
 
-  c.mdk.forEach(m => S.push({
+  c.mdk.filter(m => !m.custom).forEach(m => S.push({
     id: `themes:${m.code}`, title: `Теоретические занятия и коды компетенций по темам ПОП ${m.code}`,
     prompt: () => tpl('themes', { ...vars0, mdk_code: m.code, mdk_name: m.name,
       themes: m.themes.map(t => `${t.num} ${t.name}\n  Содержание: ${t.content.join(' ')}\n  Теоретических занятий: ${t.theory_count}\n  Практические работы: ${(t.works || []).map(w => `№ ${w.n}. ${w.title}`).join('; ') || 'нет'}`).join('\n') + ((hints.mdk || {})[m.code] ? `\nПожелания преподавателя: ${hints.mdk[m.code]}` : '') }),
@@ -138,7 +138,7 @@ function listStages(ctx) {
       const e = [];
       const eq = d.equipment || {};
       ['cabinet', 'lab', 'workshop'].forEach(k => { if (!(eq[k] || []).length) e.push(`equipment.${k}: пусто`); });
-      [...OK_CODES, 'none'].forEach(k => { if (!nonEmpty((d.lr_methods || {})[k])) e.push(`lr_methods["${k}"]: пусто`); });
+      [...(c.meta.ok || OK_CODES), 'none'].forEach(k => { if (!nonEmpty((d.lr_methods || {})[k])) e.push(`lr_methods["${k}"]: пусто`); });
       return e;
     },
     apply: d => { c.program.conditions = { equipment: d.equipment, software: d.software || [] }; c.program.lr_methods = d.lr_methods; },

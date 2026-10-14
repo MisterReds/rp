@@ -18,7 +18,7 @@ function formOf(project, item, semIdx) {
 // Число теоретических занятий и пар на каждую практическую работу распределяется автоматически.
 function themesFromPop(sec, T, P) {
   const nT = T / LESSON, nP = P / LESSON;
-  const tCount = distribute(nT, sec.themes.map(t => t.content.join(' ').length));
+  const tCount = nT ? distribute(nT, sec.themes.map(t => t.content.join(' ').length)) : sec.themes.map(() => 0);
   // группы лабораторных работ: обычно одна работа ПОП — одна группа; если пар по плану меньше,
   // чем работ ПОП, соседние короткие работы одной темы объединяются в одно занятие (названия сохраняются полностью)
   let groups = sec.themes.flatMap((t, ti) => t.labs.map(l => ({ ti, titles: [l.title] })));
@@ -76,7 +76,7 @@ function buildSkeleton(plan, project, fgos, pop) {
       meta: {
         pm: project.pm, pm_name: mod.name, vd: mod.vd, total_hours: total,
         exam_sem: m.lastSem, exam_label: semLabel(m.lastSem, off), n_sem: plan.nSem,
-        pk: mod.pk,
+        pk: mod.pk, ok: fgos.ok.map(x => x[0]),
       },
       mdk, up, pp,
       program: { pk_methods: {}, conditions: { equipment: {}, software: [] }, lr_methods: {} },

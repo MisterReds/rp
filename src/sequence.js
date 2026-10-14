@@ -21,6 +21,18 @@ function distribute(total, weights, min = 1) {
 // Занятия темы по порядку: теория, а практические работы равномерно вставляются после теоретических занятий.
 // Практическая работа на несколько пар выводится подряд с пометкой «часть k».
 function themeLessons(th) {
+  // явный перечень занятий (МДК, перенесённый из готового документа): [{k:'T'|'P', t:'название', h:2, att:true}]
+  if (Array.isArray(th.lessons)) {
+    const out = [];
+    th.lessons.forEach((l, i) => {
+      const k = Math.max(1, (l.h || LESSON) / LESSON);
+      for (let j = 1; j <= k; j++) {
+        if (l.k === 'T') out.push({ kind: 'T', title: l.t, att: !!l.att });
+        else out.push({ kind: 'P', n: `${th.num || th.name || 'x'}#${i}`, title: l.t, part: j, parts: k });
+      }
+    });
+    return out;
+  }
   const T = th.theory || [];
   const W = th.works || [];
   const out = [];

@@ -27,6 +27,7 @@ function validate(content, opts = {}) {
   const errors = [], warnings = [];
   const E = m => errors.push(m), W = m => warnings.push(m);
   const pkList = (content.meta.pk || []).map(x => x[0]);
+  const OKC = content.meta.ok || OK_CODES;
   const pop = opts.pop;
   const stages = opts.stages || ['mdk', 'up', 'pp', 'program', 'fos'];
 
@@ -34,7 +35,7 @@ function validate(content, opts = {}) {
     const pkSeen = new Set();
     content.mdk.forEach(m => {
       const sec = pop && pop.sections.find(s => s.mdk === m.code);
-      if (pop && sec) {
+      if (pop && sec && !m.custom) {
         if (m.themes.length !== sec.themes.length) E(`${m.code}: тем ${m.themes.length}, в ПОП ${sec.themes.length} — темы ПОП нельзя добавлять и удалять`);
         sec.themes.forEach((pt, i) => {
           const t = m.themes[i]; if (!t) return;
@@ -48,6 +49,15 @@ function validate(content, opts = {}) {
       const nums = [];
       m.themes.forEach((th, k) => {
         const tp = `${m.code} → ${th.num || ''} «${th.name || '?'}»`;
+        if (Array.isArray(th.lessons)) {
+          // занятия перенесены из готового документа (m.custom): проверяются только часы и названия
+          th.lessons.forEach((l, i) => {
+            if (!nonEmpty(l.t)) E(`${tp}: занятие №${i + 1} без названия`);
+            if (!(l.h > 0) || l.h % LESSON) E(`${tp}: «${l.t}» — ${l.h} ч, должно быть кратно ${LESSON}`);
+            if (l.k === 'T') T += l.h || LESSON; else if (l.k === 'P') P += l.h || LESSON; else E(`${tp}: «${l.t}» — тип занятия k должен быть 'T' или 'P'`);
+          });
+          if (!th.lessons.length) E(`${tp}: в теме нет занятий`);
+        } else {
         if (!nonEmpty(th.name)) E(`${tp}: нет названия темы`);
         if (!Array.isArray(th.content) || !th.content.length) E(`${tp}: нет содержания темы`);
         if (!Array.isArray(th.theory)) E(`${tp}: theory должен быть списком названий занятий`);
@@ -59,12 +69,13 @@ function validate(content, opts = {}) {
           nums.push(w.n); P += (w.pairs || 0) * LESSON;
         });
         if (!(th.theory || []).length && !(th.works || []).length) E(`${tp}: в теме нет занятий`);
+        T += (th.theory || []).length * LESSON;
+        }
         const c = parseCodes(th.codes);
         if (!c.pk.length) E(`${tp}: в codes нет ни одной ПК`);
         if (!c.ok.length) E(`${tp}: в codes нет ни одной ОК`);
         c.pk.forEach(x => { if (!pkList.includes(x)) E(`${tp}: ${x} не относится к модулю`); pkSeen.add(x); });
-        c.ok.forEach(x => { if (!OK_CODES.includes(x)) E(`${tp}: неизвестный код ${x}`); });
-        T += (th.theory || []).length * LESSON;
+        c.ok.forEach(x => { if (!OKC.includes(x)) E(`${tp}: неизвестный код ${x}`); });
       });
       if (new Set(nums).size !== nums.length) E(`${m.code}: внутренние номера практических работ (n) должны быть уникальны`);
       if (T !== m.T) E(`${m.code}: теория по занятиям ${T} ч, по плану ${m.T} ч`);

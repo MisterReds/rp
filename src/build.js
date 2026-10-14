@@ -7,8 +7,8 @@ const H = require('./docx_helpers.js');
 const { D, mm, P_MARG, P_W, L_MARG, L_W, C, p, center, caption, h1, h2, h3, bullets, olist, pageBreak, cp, cell, table, hdr, simpleTable, widths } = H;
 const { Document, Packer, Paragraph, TextRun, TableRow, Footer, PageNumber, AlignmentType, PageOrientation, VerticalAlign } = D;
 const { loadPlan, semLabel } = require('./plan.js');
-const { validate, parseCodes, OK_CODES } = require('./validate.js');
-const { LESSON, mdkBlocks, practiceLabel, pwMap } = require('./sequence.js');
+const { validate, parseCodes } = require('./validate.js');
+const { LESSON, mdkBlocks, practiceLabel, themeLessons } = require('./sequence.js');
 const PP_DAY = 6;
 
 const LETTERS = ['а', 'б', 'в', 'г'];
@@ -68,6 +68,8 @@ function buildDocument(ctx) {
   const PK = c.meta.pk;
   const pkCodes = PK.map(x => x[0]);
   const OK = fgos.ok;
+  const OK_CODES = OK.map(x => x[0]);
+  const okAllStr = okStr(OK_CODES);
   const LR = vosp.lr;
   const okLr = vosp.ok_lr;
   const LR_ALL = Object.keys(LR).map(Number).sort((a, b) => a - b);
@@ -153,7 +155,7 @@ function buildDocument(ctx) {
       r13('', 'Обязательной аудиторной учебной нагрузки', h, m.T + m.P + (m.K || 0)),
       r13('', 'в том числе: теоретических занятий', t, m.T),
       r13('', 'лабораторно-практических занятий', pr, m.P),
-      ...(m.K ? [r13('', 'курсовой проект (работа)', m.sems.map(s => s.K || ''), m.K)] : []),
+      ...(m.K ? [r13('', 'курсовой проект (работа)', m.sems.reduce((acc, s) => { acc[s.sem] = s.K || ''; return acc; }, []), m.K)] : []),
       r13('', 'Самостоятельная работа', [], '—'),
       r13('', `Промежуточная аттестация в форме ${mdkFormsText(m)}`, f, ''));
   });
@@ -230,28 +232,44 @@ function buildDocument(ctx) {
     ktp.push(h3(`2.2.${mi + 1}. Календарно-тематический план и содержание междисциплинарного курса ${m.code} «${m.name}»`));
     const rows = ktpHead();
     const mc = mdkCodes(m);
+    const hasSections = m.themes.some(t => t.section);
+    let curSection = null;
     blocks.forEach((b, bi) => {
       rows.push(fullRow(b.label, { bold: true, align: C, shade: 'F2F2F2' }));
       rows.push(fullRow(`теор ${b.T} ч, п/р ${b.P} ч, с/р 0 ч${b.K ? `, курсовой проект ${b.K} ч` : ''}`, { italics: true }));
-      if (bi === 0) rows.push(new TableRow({ children: [cell(m.section, span2, { colSpan: 2, bold: true }), cell(String(m.T + m.P + (m.K || 0)), wC[2], { bold: true, align: C }), cell(codesBlock(mc.pk, mc.ok, lrFromOk(mc.ok)), wC[3])] }));
+      if (bi === 0 && !hasSections) rows.push(new TableRow({ children: [cell(m.section, span2, { colSpan: 2, bold: true }), cell(String(m.T + m.P + (m.K || 0)), wC[2], { bold: true, align: C }), cell(codesBlock(mc.pk, mc.ok, lrFromOk(mc.ok)), wC[3])] }));
       b.groups.forEach(g => {
         const th = g.theme;
+        if (hasSections && th.section && th.section !== curSection) {
+          curSection = th.section;
+          const sth = m.themes.filter(t => t.section === th.section);
+          const sh = sth.reduce((a, t) => a + themeLessons(t).length * LESSON, 0);
+          const sp = uniq(sth.flatMap(t => themeCodes(t).pk)), so = uniq(sth.flatMap(t => themeCodes(t).ok));
+          rows.push(new TableRow({ children: [cell(th.section, span2, { colSpan: 2, bold: true }), cell(String(sh), wC[2], { bold: true, align: C }), cell(codesBlock(sp, so, lrFromOk(so)), wC[3])] }));
+        }
         const x = themeCodes(th);
         const span = 1 + g.lessons.length;
         rows.push(new TableRow({ children: [
-          cell([cp(`${th.num} ${th.name}`, { bold: true })], wC[0], { rowSpan: span }),
-          cell([cp(g.cont ? 'Содержание учебного материала (продолжение темы):' : 'Содержание учебного материала (перечень дидактических единиц):', { bold: true }), ...th.content.map(t => cp(t))], wC[1]),
+          cell([cp(`${th.num || ''} ${th.name || ''}`.trim(), { bold: true })], wC[0], { rowSpan: span }),
+          cell([cp(g.cont ? 'Содержание учебного материала (продолжение темы):' : ((th.content || []).length ? 'Содержание учебного материала (перечень дидактических единиц):' : 'Содержание учебного материала:'), { bold: true }), ...(th.content || []).map(t => cp(t))], wC[1]),
           cell('', wC[2]),
           cell(codesBlock(x.pk, x.ok, lrFromOk(x.ok)), wC[3], { rowSpan: span }),
         ] }));
         g.lessons.forEach(l => rows.push(new TableRow({ children: [cell(`${l.num}. ${l.kind === 'T' ? l.title : practiceLabel(l)}`, wC[1]), cell(String(LESSON), wC[2], { align: C })] })));
       });
       if (b.K && m.course_project) {
+        // курсовой проект: строка «Курсовой проект» с объёмом, ниже этапы по 2 ч с продолжением нумерации занятий
         const cpj = m.course_project;
-        rows.push(lineRow([cp('Курсовой проект (работа). Тематика:', { bold: true }), ...cpj.topics.map((t, i) => cp(`${i + 1}. ${t}`))], b.K));
+        let n = b.groups.length ? Math.max(...b.groups.flatMap(g => g.lessons.map(l => l.num))) : 0;
+        const st = [];
+        (cpj.stages || []).forEach(([t, h]) => { const k = h / LESSON; for (let i = 1; i <= k; i++) st.push(k > 1 ? `${t} (часть ${i})` : t); });
+        const cpc = codesBlock(mc.pk, mc.ok, lrFromOk(mc.ok));
+        rows.push(new TableRow({ children: [cell([cp(cpj.title || 'Курсовой проект', { bold: true })], wC[0], { rowSpan: 1 + st.length }), cell([cp(`${cpj.title || 'Курсовой проект'}${(cpj.topics || []).length ? ' (тематика — в фонде оценочных средств)' : ''}:`, { bold: true })], wC[1]), cell(String(b.K), wC[2], { bold: true, align: C }), cell(cpc, wC[3], { rowSpan: 1 + st.length })] }));
+        st.forEach(t => rows.push(new TableRow({ children: [cell(`${++n}. ${t}`, wC[1]), cell(String(LESSON), wC[2], { align: C })] })));
       }
       if (bi === blocks.length - 1) rows.push(lineRow('Самостоятельная работа (по разделу, МДК): учебным планом не предусмотрена', '—'));
-      if (b.form) rows.push(lineRow(`Промежуточная аттестация в форме ${formGen(b.form)}`, '—', { italics: true }));
+      const attInside = b.groups.some(g => g.lessons.some(l => l.att));
+      if (b.form && !attInside) rows.push(lineRow(`Промежуточная аттестация в форме ${formGen(b.form)}`, '—', { italics: true }));
     });
     rows.push(lineRow(`Всего по ${m.code}`, m.T + m.P + (m.K || 0), { bold: true }));
     ktp.push(table(wC, rows));
@@ -326,6 +344,7 @@ function buildDocument(ctx) {
 
   // ---------- раздел 4 ----------
   const worksOf = (m, pk) => m.themes.filter(th => themeCodes(th).pk.includes(pk));
+  const blocksOf = m => MB.find(x => x.m === m).blocks;
   const w4 = widths(P_W, [38, 0, 42, 45], 1);
   const groupRow = t => new TableRow({ children: [cell(t, P_W, { colSpan: 4, bold: true, shade: 'F2F2F2' })] });
   const scale = ['«5» — действие выполнено полностью и самостоятельно, результат соответствует заданию', '«4» — выполнено полностью, допущены 1–2 несущественные ошибки, исправленные самостоятельно', '«3» — выполнено не менее чем на 60 %, основной результат достигнут с помощью преподавателя', '«2» — выполнено менее чем на 60 % или результат не достигнут'];
@@ -337,11 +356,11 @@ function buildDocument(ctx) {
     const formsTxt = m.sems.filter(s => s.form).map(s => `${formNom(s.form)} (${s.label})`).join('; ');
     mdkCodes(m).pk.forEach(k => {
       const ths = worksOf(m, k);
-      const pm_ = pwMap(m);
-      const wn = ths.flatMap(th => (th.works || []).flatMap(w => pm_[w.n] || []));
+      const tis = ths.map(th => m.themes.indexOf(th));
+      const wn = blocksOf(m).flatMap(b => b.groups.filter(g => tis.includes(g.ti)).flatMap(g => g.lessons.filter(l => l.kind === 'P').map(l => l.pw)));
       evalRows.push(new TableRow({ children: [
         cell(`${k}. ${PK.find(x => x[0] === k)[1]}`, w4[0]),
-        cell([`Знания, умения и навыки по ${k} (п. 1.1.3), формируемые в темах ${ths.map(th => th.num.replace(/^Тема\s*/, '').replace(/\.$/, '')).join(', ')}.`, ...(wn.length ? [`Действия: выполнение практических работ № ${ranges(wn)}.`] : [])], w4[1]),
+        cell([`Знания, умения и навыки по ${k} (п. 1.1.3), формируемые в темах ${ths.filter(th => th.num).map(th => th.num.replace(/^Тема\s*/, '').replace(/\.$/, '')).join(', ')}.`, ...(wn.length ? [`Действия: выполнение практических работ № ${ranges(wn)}.`] : [])], w4[1]),
         cell([`Текущий контроль: устный опрос, тестирование, экспертное наблюдение и оценка на практических занятиях, защита отчётов по практическим работам${wn.length ? ` № ${ranges(wn)}` : ''}.`, `Промежуточная аттестация: ${formsTxt || 'не предусмотрена'}.`, `Итоговый контроль: экзамен по модулю (${c.meta.exam_label}).`], w4[2]),
         cell([...((crit[k] || {}).criteria || []).map(x => '– ' + x), 'Оценка — по шкале таблицы 4.1.2.'], w4[3]),
       ] }));
@@ -421,8 +440,8 @@ function buildDocument(ctx) {
     for (let i = 0; i < half2; i++) { const a = T[i], b = T[i + half2]; r.push(new TableRow({ children: [cell(String(i + 1), w[0], { align: C }), cell(LETTERS[a.answer], w[1], { align: C }), cell(b ? String(i + half2 + 1) : '', w[2], { align: C }), cell(b ? LETTERS[b.answer] : '', w[3], { align: C })] })); }
     return table(w, [hdr(['№ вопроса', 'Ответ', '№ вопроса', 'Ответ'], w), ...r]);
   };
-  const ticket = (m, label, ex) => table([P_W], [new TableRow({ children: [cell([
-    org.short, `${m.code} ${m.name}`, `Специальность ${spec}, группа ${pj.group}, ${label}`, 'ЭКЗАМЕНАЦИОННЫЙ БИЛЕТ № 1',
+  const ticket = (m, label, ex, form) => table([P_W], [new TableRow({ children: [cell([
+    org.short, `${m.code} ${m.name}`, `Специальность ${spec}, группа ${pj.group}, ${label}`, form === 'Э' ? 'ЭКЗАМЕНАЦИОННЫЙ БИЛЕТ № 1' : 'БИЛЕТ № 1',
     `1. ${ex.questions[0]}`, `2. ${ex.questions[Math.floor(ex.questions.length / 2)]}`, `3. Практическое задание: ${ex.tasks[0]}`,
     'Время на подготовку — 30 минут, на выполнение практического задания — 30 минут.',
     'Преподаватель ____________ /____________/        Председатель ПЦК ____________ /____________/',
@@ -458,10 +477,22 @@ function buildDocument(ctx) {
       const T = (fos.tests[m.code] || []).filter(q => q.t && themeSem[q.t - 1] === b.sem);
       f5.push(sub('Текущий контроль. Тестовые задания'));
       if (T.length) {
-        const thNames = uniq(T.map(q => q.t)).sort((a, b2) => a - b2).map(t => `${m.themes[t - 1].num} ${m.themes[t - 1].name}`);
-        f5.push(p(`Темы: ${thNames.join('; ')}.`, { italics: true, noIndent: true, after: 80 }), ...testBlock(T),
+        const thNames = uniq(T.map(q => q.t)).sort((a, b2) => a - b2).map(t => `${m.themes[t - 1].num || ''} ${(m.themes[t - 1].name || '').replace(/\.\s*$/, '')}`.trim()).filter(Boolean);
+        if (thNames.length) f5.push(p(`Темы: ${thNames.join('; ')}.`, { italics: true, noIndent: true, after: 80 }));
+        f5.push(...testBlock(T),
           p('Ключ', { bold: true, noIndent: true, before: 120, after: 80, keepNext: true }), keyTable(T));
       } else f5.push(p('Тестирование в семестре проводится в форме устного опроса по темам семестра.'));
+      if (b.K && m.course_project) {
+        const cpj = m.course_project;
+        f5.push(sub(`Курсовой проект (${b.K} ч)`),
+          p(`Выполнение курсового проекта является обязательным. Проект выполняется по этапам календарно-тематического плана (п. 2.2.${MB.findIndex(x => x.m === m) + 1}) и завершается защитой.`));
+        if ((cpj.topics || []).length) f5.push(caption('Примерная тематика курсовых проектов'), ...olist(cpj.topics));
+        f5.push(caption('Критерии оценки курсового проекта'), crit5([
+          ['5 «отлично»', 'Все этапы выполнены в срок; расчёты и проектные решения верны и обоснованы; графическая и текстовая части оформлены по требованиям; на защите даны полные ответы'],
+          ['4 «хорошо»', 'Проект выполнен полностью, имеются несущественные ошибки в расчётах или оформлении; ответы на защите с неточностями'],
+          ['3 «удовлетворительно»', 'Проект выполнен не полностью или с ошибками в расчётах; обоснование решений слабое; ответы на защите неполные'],
+          ['2 «неудовлетворительно»', 'Проект не выполнен или содержит грубые ошибки; на защите обучающийся не может пояснить решения']]));
+      }
       f5.push(sub('Промежуточная аттестация'));
       if (!b.form) f5.push(p('Промежуточная аттестация в семестре учебным планом не предусмотрена; оценка за семестр выставляется по результатам текущего контроля.'));
       else if (['ДР', 'КР'].includes(b.form) && fos.control_works[m.code]) {
@@ -469,12 +500,12 @@ function buildDocument(ctx) {
         f5.push(p(`Форма — контрольная работа. Работа выполняется письменно, время — ${cw.minutes || 90} минут; ${cw.variants.length} варианта одинаковой сложности, каждое задание оценивается до 10 баллов. Критерии — п. 5.1.`));
         cw.variants.forEach((v, i) => f5.push(p(`Вариант ${i + 1}`, { bold: true, noIndent: true, before: 160, keepNext: true }), ...v.tasks.map((t, j) => p(`Задание ${j + 1}. ${t}`, { noIndent: true }))));
         f5.push(p('Эталоны ответов', { bold: true, noIndent: true, before: 160, keepNext: true }), ...cw.variants.map((v, i) => p(`Вариант ${i + 1}. ${v.answer}`, { noIndent: true })));
-      } else if (fos.exams[m.code]) {
-        const ex = fos.exams[m.code];
-        f5.push(p(`Форма — ${formNom(b.form)}. Экзамен проводится по билетам: два теоретических вопроса и одно практическое задание. Критерии — п. 5.1.`),
+      } else if (fos.exams[`${m.code}|${b.label}`] || fos.exams[m.code]) {
+        const ex = fos.exams[`${m.code}|${b.label}`] || fos.exams[m.code];
+        f5.push(p(`Форма — ${formNom(b.form)}. Проводится по билетам: два теоретических вопроса и одно практическое задание. Критерии — п. 5.1.`),
           caption('Вопросы к экзамену'), ...olist(ex.questions),
           caption('Типы практических задач к экзамену'), ...olist(ex.tasks),
-          caption('Образец экзаменационного билета'), ticket(m, b.label, ex));
+          caption('Образец экзаменационного билета'), ticket(m, b.label, ex, b.form));
       }
     });
   });
@@ -488,7 +519,7 @@ function buildDocument(ctx) {
   if (c.up.length) {
     sn += 1;
     f5.push(pageBreak(), h2(`5.${sn}. Фонд оценочных средств по учебной практике ${c.up[0].code}`),
-      p(`Проверяемые результаты: ${pkStr(upPK)}; ОК 01–09; ${lrStr(lrFromOk(OK_CODES))}. Учебная практика оценивается по результатам выполнения видов работ (наблюдение, проверка результатов) и аттестационному листу (форма ${FN.up}).`));
+      p(`Проверяемые результаты: ${pkStr(upPK)}; ${okAllStr}; ${lrStr(lrFromOk(OK_CODES))}. Учебная практика оценивается по результатам выполнения видов работ (наблюдение, проверка результатов) и аттестационному листу (форма ${FN.up}).`));
     c.up.forEach((u, i) => {
       f5.push(h3(`5.${sn}.${i + 1}. ${u.label}`), sub('Виды работ'), worksTable(u, 'up'), sub('Промежуточная аттестация'));
       if (u.form) {
@@ -508,7 +539,7 @@ function buildDocument(ctx) {
     sn += 1;
     const ppPK = workCodes(c.pp);
     f5.push(pageBreak(), h2(`5.${sn}. Фонд оценочных средств по производственной практике ${c.pp[0].code}`),
-      p(`Проверяемые результаты: ${pkStr(ppPK)}; ОК 01–09; ${lrStr(lrFromOk(OK_CODES))}.`));
+      p(`Проверяемые результаты: ${pkStr(ppPK)}; ${okAllStr}; ${lrStr(lrFromOk(OK_CODES))}.`));
     c.pp.forEach((u, i) => {
       f5.push(h3(`5.${sn}.${i + 1}. ${u.label}`), sub('Виды работ'), worksTable(u, 'pp'));
       f5.push(sub('Итоги практики'), p(u.form ? `Промежуточная аттестация — ${formNom(u.form)}.` : 'Промежуточная аттестация (дифференцированный зачёт) по производственной практике не проводится. По окончании практики обучающийся оформляет и сдаёт отчёт по практике; руководитель от профильной организации заполняет аттестационный лист (форма ' + FN.pp + ') и характеристику (форма ' + FN.char + '). Отчёт, аттестационный лист и характеристика предъявляются для допуска к экзамену по модулю.'));
