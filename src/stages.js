@@ -123,7 +123,7 @@ function listStages(ctx) {
   c.pp.forEach((u, ui) => S.push({
     id: `pp:${ui + 1}`, title: `Производственная практика ${u.code}, ${u.label} (${u.hours} ч)`,
     prompt: () => tpl('pp', { ...vars0, code: u.code, sem_label: u.label, hours: u.hours, days: u.days,
-      works: (pop.pp_works || []).map(x => `«${x}»`).join('; '),
+      works: (pop.pp_works || []).length ? pop.pp_works.map(x => `«${x}»`).join('; ') : 'в ПОП перечня нет — составь 3–6 видов работ сам по практическому опыту и ПК модуля',
       final_note: u.form ? `последний день — оформление отчёта и ${FORM_NAMES[u.form] || u.form}.` : 'последний день — оформление отчёта по практике (зачёт/аттестацию НЕ указывать — она не проводится).' }),
     check: d => {
       const e = []; const E = x => e.push(x);
@@ -146,7 +146,7 @@ function listStages(ctx) {
 
   S.push({
     id: 'program', title: 'Оснащение, ПО и методы формирования ЛР',
-    prompt: () => tpl('program', { ...vars0, works: c.mdk.map(m => `${m.code}: ` + m.themes.flatMap(t => (t.works || []).map(w => `№ ${w.n} ${w.title}`)).join('; ')).join('\n') }),
+    prompt: () => tpl('program', { ...vars0, ok_codes: okList.join(', '), ok_last: okList[okList.length - 1], works: c.mdk.map(m => `${m.code}: ` + m.themes.flatMap(t => (t.works || []).map(w => `№ ${w.n} ${w.title}`)).join('; ')).join('\n') }),
     check: d => {
       const e = [];
       const eq = d.equipment || {};
