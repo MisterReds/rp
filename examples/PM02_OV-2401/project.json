@@ -2,10 +2,10 @@
   "_comment": "Паспорт документа. Пути — относительно этого файла.",
   "fgos": "../../data/fgos/09.02.01.json",
   "vospitanie": "../../data/vospitanie/spet_2026-2027.json",
-  "plan": "../../data/plans/OV-2501.tsv",
+  "plan": "../../data/plans/OV-2401.tsv",
   "pop": "../../data/pop/09.02.01_PM02.json",
   "pm": "ПМ.02",
-  "group": "ОВ-2501",
+  "group": "ОВ-2401",
   "form": "очная",
   "year": 2026,
   "course_offset": 0,
@@ -28,7 +28,7 @@
   },
   "pop_reg_number": "______",
   "content": "content.json",
-  "output": "../../out/РП_ПМ.02_ОВ-2501_с_ФОС.docx",
+  "output": "../../out/РП_ПМ.02_ОВ-2401_с_ФОС.docx",
   "forms_override": {
     "ПП.02": null
   },
