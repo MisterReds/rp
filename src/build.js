@@ -54,6 +54,7 @@ function loadProject(projectFile) {
     dir, project: pj,
     fgos: JSON.parse(fs.readFileSync(rd(pj.fgos), 'utf8')),
     vosp: JSON.parse(fs.readFileSync(rd(pj.vospitanie), 'utf8')),
+    lit: pj.literature ? JSON.parse(fs.readFileSync(rd(pj.literature), 'utf8')) : null,
     vospPrev: pj.vospitanie_prev ? JSON.parse(fs.readFileSync(rd(pj.vospitanie_prev), 'utf8')) : null,
     pop: pj.pop ? JSON.parse(fs.readFileSync(rd(pj.pop), 'utf8')) : null,
     plan: loadPlan(rd(pj.plan)),
@@ -65,7 +66,7 @@ function loadProject(projectFile) {
 }
 
 function buildDocument(ctx) {
-  const { project: pj, fgos, vosp, vospPrev, pop, content: c } = ctx;
+  const { project: pj, fgos, vosp, vospPrev, pop, lit, content: c } = ctx;
   const org = pj.org;
   const PK = c.meta.pk;
   const pkCodes = PK.map(x => x[0]);
@@ -81,6 +82,15 @@ function buildDocument(ctx) {
   const curYear = ((vosp.title || '').match(/(\d{4})\s*[–-]\s*(\d{4})/) || []).slice(1, 3).join('/');
   const LR_PREV = vospPrev ? Object.keys(vospPrev.lr).map(Number).sort((a, b) => a - b) : [];
   const yearP = y => p(`(${y} учебный год):`, { noIndent: true, before: 120, keepNext: true });
+  // литература: ЭБС из project.literature (по группе и ПМ, без повторов); нет — из ПОП
+  const litRows = lit ? (lit.mdk || []).filter(x => x.group === pj.group && x.pm === c.meta.pm) : [];
+  const litUniq = arr => { const seen = new Set(); return arr.filter(b => b && !seen.has(b) && seen.add(b)); };
+  const litMain = litRows.length ? litUniq(litRows.flatMap(x => (x.main || []).map(b => b.bib))) : pop.literature_main;
+  const litAddE = litUniq(litRows.flatMap(x => (x.additional || []).map(b => b.bib))).filter(b => !litMain.includes(b));
+  // по МДК с пометкой ЭБС (мало изданий, слабое соответствие) — в дополнительные издания ПОП не старше lit.min_year
+  const yearOf = t => +((String(t).match(/(?:19|20)\d\d/g) || ['0']).pop());
+  const popFresh = litRows.some(x => x.note) ? [...(pop.literature_main || []), ...(pop.literature_add || [])].filter(t => yearOf(t) >= (lit.min_year || 2021)) : [];
+  const litAdd = litRows.length && (litAddE.length || popFresh.length) ? litUniq([...litAddE, ...popFresh]) : pop.literature_add;
   const pmTitle = `${c.meta.pm} ${c.meta.pm_name}`;
   const pmQ = `${c.meta.pm} «${c.meta.pm_name}»`;
   const spec = `${fgos.code} ${fgos.name}`;
@@ -369,9 +379,9 @@ function buildDocument(ctx) {
     h2('3.2. Информационное обеспечение реализации программы'),
     p('Информационное обеспечение реализации программы профессионального модуля представляет собой совокупность информационного обеспечения реализации программ междисциплинарных курсов, учебной и производственной практики, которые составляют содержательную часть программы профессионального модуля (п. 2.2 настоящей программы).'),
     p('Основные источники:', { bold: true, keepNext: true, before: 120 }),
-    ...olist(pop.literature_main),
+    ...olist(litMain),
     p('Дополнительные источники:', { bold: true, keepNext: true, before: 120 }),
-    ...olist(pop.literature_add),
+    ...olist(litAdd),
     h2('3.3. Кадровое обеспечение образовательного процесса'),
     p('Требования к квалификации педагогических кадров, обеспечивающих обучение по профессиональному модулю: наличие высшего / среднего профессионального образования, соответствующего профилю преподаваемого профессионального модуля.'),
     p(`Реализация образовательной программы осуществляется педагогическими работниками образовательной организации, а также лицами, привлекаемыми к реализации образовательной программы на условиях гражданско-правового договора, в том числе из числа руководителей и работников организаций, направление деятельности которых соответствует области профессиональной деятельности ${fgos.professional_area}, указанной в ФГОС СПО (имеющих стаж работы в данной профессиональной области не менее 3 лет).`),

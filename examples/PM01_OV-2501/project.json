@@ -47,5 +47,6 @@
     "api_key_env": "LLM_API_KEY",
     "temperature": 0.4,
     "json_mode": true
-  }
+  },
+  "literature": "../../sources/literature/urait_2026.json"
 }
