@@ -99,6 +99,10 @@ DOP = re.compile(r'^Дополнительно для квалификаци[й�
 WORK = re.compile(r'^(Практическ\w+ (?:работ\w*|заняти\w*)|Лабораторн\w+ работ\w*)\.?\s*(?:№\s*\d+\.?)?\s*[«"](.+?)[»"]?\s*\.?$')
 
 
+# формат 2022 (ПООП 09.02.01): «Практическое занятие № 1. Название» без кавычек
+WORK_PLAIN = re.compile(r'^((?:Практическ|Лабораторн)\w+ (?:работ\w*|заняти\w*))\s*№\s*\d+\.?\s+(\S.*?)\s*$')
+
+
 def join_quotes(lines):
     """Склеить абзацы, если кавычки «» разорваны переносом."""
     out = []
@@ -143,6 +147,7 @@ def main():
            'pk': [], 'vd': '', 'results_simple': {}, 'sections': [], 'up_works': [], 'pp_works': [],
            'criteria': {}, 'course_topics': [], 'rooms': [], 'literature_main': [], 'literature_add': []}
     mode = None
+    plain_lit = False
     for x in part:
         if isinstance(x, Paragraph):
             t = ptext(x)
@@ -153,13 +158,22 @@ def main():
             if re.match(r'^3\.2\.1', t) or re.match(r'^3\.2\.2', t):
                 mode = 'lit_main'; continue
             if re.match(r'^3\.2\.3', t) or t.lower().startswith('дополнительные источники'):
-                mode = 'lit_add'; continue
+                mode = 'lit_add'; plain_lit = t.lower().startswith('дополнительные источники'); continue
+            if re.match(r'^основные (печатные|электронные) издания', t.lower()):
+                mode = 'lit_main'; plain_lit = True; continue
             if re.match(r'^3\.2\.?\s', t) or re.match(r'^4\.\s', t):
                 mode = None; continue
             if mode == 'rooms' and 'оснащ' in t.lower():
                 out['rooms'].append(t.rstrip(':') + ('' if t.endswith('.') else '.'))
             elif mode in ('lit_main', 'lit_add') and re.match(r'^\d+\.', t):
                 out['literature_main' if mode == 'lit_main' else 'literature_add'].append(re.sub(r'^\d+\.\s*', '', t))
+            elif mode in ('lit_main', 'lit_add') and plain_lit:
+                # формат 2022: источники без номеров; запись, оборванная на «/», продолжается в следующем абзаце
+                lst = out['literature_main' if mode == 'lit_main' else 'literature_add']
+                if lst and lst[-1].endswith('/'):
+                    lst[-1] = lst[-1] + ' ' + t
+                else:
+                    lst.append(t)
             continue
         rows = rows_of(x)
         if not rows or not rows[0]:
@@ -205,6 +219,13 @@ def main():
                     sec['mdk'] = f'МДК.{m.group(1)}.{m.group(2)}' if m else ''
                     sec['mdk_title_pop'] = first
                     continue
+                if first.startswith('Курсов') and 'Тематика курсовых' in r[0]:
+                    out['course_topics'] =
+                        r[0][[i for i, c in enumerate(r[0]) if c.startswith('Тематика курсовых')][0] + 1:]
+                if r and len(r[0]) > 2 and re.match(r'^(Учебная|Производственная) практика', r[0][0]):
+                    # формат 2022: виды работ практики — абзацы ячейки после заголовка «Виды работ[:]»
+                    ws = [c.rstrip(';.').strip() for c in r[0][1:] if not re.match(r'^Виды работ:?$', c)]
+                    out['up_works' if r[0][0].startswith('Учебная') else 'pp_works'].extend(w for w in ws if w)
                 if first.startswith('Курсов') or first.startswith('Учебная практика') or first.startswith('Производственная') or first.startswith('Всего'):
                     theme = None
                     continue
@@ -227,7 +248,7 @@ def main():
                         continue
                     if ln.startswith(('Содержание', 'В том числе')) or re.match(r'^[\d\s/*]+$', ln):
                         continue
-                    wm = WORK.match(ln)
+                    wm = WORK.match(ln) or WORK_PLAIN.match(ln)
                     if wm:
                         theme['labs'].append({'n': 0, 'kind': wm.group(1), 'title': wm.group(2).strip().rstrip('»').strip()})
                     else:
