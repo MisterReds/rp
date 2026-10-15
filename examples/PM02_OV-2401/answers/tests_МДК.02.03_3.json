@@ -1,0 +1,224 @@
+{
+ "tests": [
+  {
+   "q": "Во что компилируется исходный код программы на Java?",
+   "options": [
+    "в байт-код для виртуальной машины",
+    "в машинный код конкретного процессора",
+    "в сценарий командной оболочки",
+    "в XML-описание проекта"
+   ],
+   "answer": 0,
+   "t": 2
+  },
+  {
+   "q": "Сколько раз выполнится тело цикла for (int i = 0; i < 5; i++)?",
+   "options": [
+    "4 раза",
+    "6 раз",
+    "ни разу",
+    "5 раз"
+   ],
+   "answer": 3,
+   "t": 3
+  },
+  {
+   "q": "Какой класс считывает данные из консоли?",
+   "options": [
+    "Random",
+    "Scanner",
+    "Math",
+    "Thread"
+   ],
+   "answer": 1,
+   "t": 4
+  },
+  {
+   "q": "Какое ключевое слово запрещает наследование от класса?",
+   "options": [
+    "static",
+    "abstract",
+    "final",
+    "private"
+   ],
+   "answer": 2,
+   "t": 5
+  },
+  {
+   "q": "Какой интерфейс должен реализовать класс для сериализации объектов?",
+   "options": [
+    "Serializable",
+    "Cloneable",
+    "Comparable",
+    "Runnable"
+   ],
+   "answer": 0,
+   "t": 6
+  },
+  {
+   "q": "Какой интерфейс хранит пары «ключ – значение»?",
+   "options": [
+    "Map",
+    "List",
+    "Set",
+    "Queue"
+   ],
+   "answer": 0,
+   "t": 7
+  },
+  {
+   "q": "Какой менеджер размещения располагает компоненты по сторонам света?",
+   "options": [
+    "GridLayout",
+    "FlowLayout",
+    "BorderLayout",
+    "CardLayout"
+   ],
+   "answer": 2,
+   "t": 8
+  },
+  {
+   "q": "Какая утилита JDK собирает jar-архив?",
+   "options": [
+    "javac",
+    "java",
+    "jar",
+    "javadoc"
+   ],
+   "answer": 2,
+   "t": 11
+  },
+  {
+   "q": "Где хранят строки интерфейса в проекте Android?",
+   "options": [
+    "в AndroidManifest.xml",
+    "в res/values/strings.xml",
+    "в MainActivity.java",
+    "в gradle.properties"
+   ],
+   "answer": 1,
+   "t": 12
+  },
+  {
+   "q": "Каким объектом запускают другую Activity?",
+   "options": [
+    "Bundle",
+    "Adapter",
+    "Handler",
+    "Intent"
+   ],
+   "answer": 3,
+   "t": 14
+  },
+  {
+   "q": "Какой класс помогает создавать и обновлять базу SQLite?",
+   "options": [
+    "ContentResolver",
+    "SQLiteOpenHelper",
+    "CursorAdapter",
+    "BaseAdapter"
+   ],
+   "answer": 1,
+   "t": 15
+  },
+  {
+   "q": "Какой класс используют для построения диалогового окна?",
+   "options": [
+    "PendingIntent",
+    "ViewHolder",
+    "AlertDialog.Builder",
+    "LayoutInflater"
+   ],
+   "answer": 2,
+   "t": 16
+  },
+  {
+   "q": "Какой класс управляет добавлением фрагментов в Activity?",
+   "options": [
+    "LayoutManager",
+    "NotificationManager",
+    "FragmentManager",
+    "PackageManager"
+   ],
+   "answer": 2,
+   "t": 18
+  },
+  {
+   "q": "Какой тип службы обязан показывать уведомление?",
+   "options": [
+    "Bound Service",
+    "Foreground Service",
+    "Started Service",
+    "Widget Provider"
+   ],
+   "answer": 1,
+   "t": 20
+  },
+  {
+   "q": "Какое разрешение нужно для записи на внешнюю карту в старых версиях Android?",
+   "options": [
+    "INTERNET",
+    "CAMERA",
+    "READ_SMS",
+    "WRITE_EXTERNAL_STORAGE"
+   ],
+   "answer": 3,
+   "t": 22
+  },
+  {
+   "q": "Какой тип будильника AlarmManager выводит устройство из сна?",
+   "options": [
+    "RTC",
+    "ELAPSED_REALTIME",
+    "INTERVAL_DAY",
+    "RTC_WAKEUP"
+   ],
+   "answer": 3,
+   "t": 25
+  },
+  {
+   "q": "Какой метод переопределяют для рисования в собственном View?",
+   "options": [
+    "onDraw(Canvas)",
+    "onCreate(Bundle)",
+    "onReceive(Context, Intent)",
+    "onBind(Intent)"
+   ],
+   "answer": 0,
+   "t": 28
+  },
+  {
+   "q": "Через какой класс получают список сопряжённых Bluetooth-устройств?",
+   "options": [
+    "WifiManager",
+    "NfcAdapter",
+    "UsbManager",
+    "BluetoothAdapter"
+   ],
+   "answer": 3,
+   "t": 31
+  },
+  {
+   "q": "Какой вид тестирования быстро проверяет основные функции новой сборки?",
+   "options": [
+    "нагрузочное",
+    "дымовое",
+    "юзабилити",
+    "миграционное"
+   ],
+   "answer": 1,
+   "t": 32
+  },
+  {
+   "q": "Что делает команда git revert?",
+   "options": [
+    "создаёт коммит, отменяющий изменения указанного",
+    "удаляет репозиторий целиком",
+    "переименовывает текущую ветку",
+    "загружает изменения с сервера"
+   ],
+   "answer": 0,
+   "t": 33
+  }
+ ]
+}
