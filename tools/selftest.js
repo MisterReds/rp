@@ -56,7 +56,7 @@ async function run(dir) {
   });
   const fails = [];
   // практики, перенесённые из готовых программ практик (_practice_source), этапами не генерируются — переносятся как есть
-  if (ref._practice_source) { ctx.content.up = ref.up; ctx.content.pp = ref.pp; }
+  if (ref._practice_source) { ctx.content.up = ref.up; ctx.content.pp = ref.pp; ctx.content._practice_source = ref._practice_source; }
   for (const st of listStages(ctx)) {
     if (ref._practice_source && /^(up|pp):/.test(st.id)) continue;
     const fresh = listStages(ctx).find(s => s.id === st.id);
