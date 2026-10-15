@@ -1,7 +1,7 @@
 // Строгая проверка наполнения перед сборкой документа.
 // Ошибки (errors) блокируют сборку, предупреждения (warnings) — нет.
 'use strict';
-const { LESSON, mdkBlocks , ppItems, ppText, ppHours } = require('./sequence.js');
+const { LESSON, mdkBlocks, attSems, ppItems, ppText, ppHours } = require('./sequence.js');
 const PP_DAY = 6;
 
 const OK_CODES = ['ОК 01', 'ОК 02', 'ОК 03', 'ОК 04', 'ОК 05', 'ОК 06', 'ОК 07', 'ОК 08', 'ОК 09'];
@@ -90,8 +90,8 @@ function validate(content, opts = {}) {
         c.ok.forEach(x => { if (!OKC.includes(x)) E(`${tp}: неизвестный код ${x}`); });
       });
       if (new Set(nums).size !== nums.length) E(`${m.code}: внутренние номера практических работ (n) должны быть уникальны`);
-      if (T !== m.T) E(`${m.code}: теория по занятиям ${T} ч, по плану ${m.T} ч`);
-      if (P !== m.P) E(`${m.code}: практика по занятиям ${P} ч, по плану ${m.P} ч`);
+      const A = attSems(m).length * LESSON; // пары зачёта (ДЗ/З) — в часах МДК
+      if (!((T + A === m.T && P === m.P) || (T === m.T && P + A === m.P))) E(`${m.code}: теория ${T} ч + практика ${P} ч${A ? ` + зачёт ${A} ч` : ''} не совпадают с планом (теория ${m.T} ч, практика ${m.P} ч)`);
       const b = mdkBlocks(m);
       if (b.total * LESSON !== m.sems.reduce((a, s) => a + s.hours - (s.K || 0), 0)) E(`${m.code}: занятия (${b.total * LESSON} ч) не совпадают с часами семестров`);
       const titles = m.themes.flatMap(th => th.theory || []);
@@ -119,6 +119,7 @@ function validate(content, opts = {}) {
         s += sumH(w.tasks);
       });
       if (s !== u.hours) E(`${path}: занятия дают ${s} ч, по плану ${u.hours} ч`);
+      if (['ДЗ', 'З'].includes(u.form)) { const lw = u.works[u.works.length - 1]; const lt = (lw.tasks || [])[(lw.tasks || []).length - 1] || []; if (!/зач[её]т/i.test(lt[0] || '') || lt[1] !== LESSON) E(`${path}: последней парой (${LESSON} ч) должен быть зачёт — сейчас «${lt[0]}», ${lt[1]} ч`); }
     });
     if (pop && pop.up_works && content.up.length) { const used = content.up.flatMap(u => u.works.map(w => w.name)); pop.up_works.forEach(n => { if (!used.includes(n)) E(`Учебная практика: не включён вид работ ПОП «${n}»`); }); }
   }

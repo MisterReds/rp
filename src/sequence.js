@@ -48,8 +48,14 @@ function themeLessons(th) {
 }
 
 // Разбить занятия МДК по семестрам учебного плана. Тема, не уместившаяся в семестр, продолжается в следующем.
+// Семестры, где зачёт (ДЗ/З) проводится последней парой МДК и входит в КТП (у МДК из готовой программы — как в документе)
+const ATT_FORMS = ['ДЗ', 'З'];
+const attSems = m => (m.custom ? [] : (m.sems || []).filter(s => ATT_FORMS.includes(s.form)).map(s => s.sem));
+const ATT_TITLE = { 'ДЗ': 'Дифференцированный зачёт', 'З': 'Зачёт' };
+
 function mdkBlocks(m) {
   const seq = (m.themes || []).flatMap((th, ti) => themeLessons(th).map(l => ({ ...l, ti })));
+  const att = attSems(m);
   // каждая практическая пара — отдельная практическая работа со своим номером (сквозной внутри МДК)
   let pw = 0;
   seq.forEach(l => { if (l.kind === 'P') l.pw = ++pw; });
@@ -57,8 +63,10 @@ function mdkBlocks(m) {
   let num = 0;
   const blocks = (m.sems || []).map(s => {
     const n = Math.max(0, (s.hours - (s.K || 0)) / LESSON);
-    const items = seq.slice(k, k + n);
-    k += n;
+    const isAtt = att.includes(s.sem);
+    const items = seq.slice(k, k + n - (isAtt ? 1 : 0));
+    k += n - (isAtt ? 1 : 0);
+    if (isAtt) items.push({ kind: 'T', title: ATT_TITLE[s.form], att: true, ti: items.length ? items[items.length - 1].ti : (k < seq.length ? seq[k].ti : 0) });
     const groups = [];
     items.forEach(l => {
       l.num = ++num;
@@ -70,7 +78,7 @@ function mdkBlocks(m) {
     const P = items.filter(x => x.kind === 'P').length * LESSON;
     return { ...s, T, P, groups, short: n - items.length };
   });
-  return { blocks, total: seq.length, placed: Math.min(k, seq.length) };
+  return { blocks, total: seq.length + att.length, placed: Math.min(k, seq.length) };
 }
 
 // Подпись практического занятия: «Практическая работа № N. Название (часть k)»
@@ -97,4 +105,4 @@ const ppItems = w => (w.days || []).map(d => (Array.isArray(d) ? [d[0], Number(d
 const ppText = w => ppItems(w).map(x => x[0]);
 const ppHours = w => ppItems(w).reduce((a, x) => a + x[1], 0);
 
-module.exports = { ppItems, ppText, ppHours, LESSON, distribute, themeLessons, mdkBlocks, practiceLabel, pairTitle, pwMap };
+module.exports = { attSems, ATT_FORMS, ppItems, ppText, ppHours, LESSON, distribute, themeLessons, mdkBlocks, practiceLabel, pairTitle, pwMap };

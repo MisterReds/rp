@@ -16,8 +16,9 @@ function formOf(project, item, semIdx) {
 
 // Темы МДК из ПОП: названия, содержание и практические работы — без изменений.
 // Число теоретических занятий и пар на каждую практическую работу распределяется автоматически.
-function themesFromPop(sec, T, P) {
-  const nT = T / LESSON, nP = P / LESSON;
+function themesFromPop(sec, T, P, att = 0) {
+  // зачёт (ДЗ/З) — последняя пара семестра: она берётся из теоретических пар, если их нет — из практических
+  const nT = T / LESSON - (T / LESSON >= att ? att : 0), nP = P / LESSON - (T / LESSON >= att ? 0 : att);
   const tCount = nT ? distribute(nT, sec.themes.map(t => t.content.join(' ').length)) : sec.themes.map(() => 0);
   // группы лабораторных работ: обычно одна работа ПОП — одна группа; если пар по плану меньше,
   // чем работ ПОП, соседние короткие работы одной темы объединяются в одно занятие (названия сохраняются полностью)
@@ -52,7 +53,7 @@ function buildSkeleton(plan, project, fgos, pop) {
     const sec = pop && pop.sections.find(x => x.mdk === it.index);
     if (pop && !sec) errors.push(`${it.index}: в файле ПОП нет раздела для этого МДК`);
     let themes = [];
-    if (sec) { try { themes = themesFromPop(sec, it.theory, it.practice); } catch (e) { errors.push(`${it.index}: ${e.message}`); } }
+    if (sec) { try { themes = themesFromPop(sec, it.theory, it.practice, sems.filter(s => ['ДЗ', 'З'].includes(s.form)).length); } catch (e) { errors.push(`${it.index}: ${e.message}`); } }
     return {
       code: it.index, name: it.name, section: sec ? sec.section : `Раздел ${i + 1}. ${it.name}`,
       T: it.theory, P: it.practice, K: it.course, sems, themes,

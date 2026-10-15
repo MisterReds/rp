@@ -98,7 +98,7 @@ function listStages(ctx) {
       studied: c.mdk.flatMap(m => studiedThemes(m, u.sem)).join('; ') || 'см. состав модуля',
       up_hint: hints.up ? `Пожелания преподавателя: ${hints.up}` : '',
       first_note: ui === 0 ? 'Первое задание первого вида работ — инструктаж по охране труда и организация рабочего места (2 ч).' : '',
-      last_note: u.form ? `Последнее задание — оформление отчёта по учебной практике и ${FORM_NAMES[u.form] || u.form}.` : 'Последнее задание — оформление отчёта по практике.' }),
+      last_note: u.form ? `Предпоследнее задание — оформление отчёта по учебной практике; последнее — отдельная пара ["${u.form === 'З' ? 'Зачёт' : 'Дифференцированный зачёт'}", 2] (зачёт входит в часы практики).` : 'Последнее задание — оформление отчёта по практике.' }),
     check: d => {
       const e = []; const E = x => e.push(x);
       if (!Array.isArray(d.works) || !d.works.length) return ['нет works'];
@@ -115,6 +115,7 @@ function listStages(ctx) {
       }
       Q.dup(d.works.flatMap(w => (w.tasks || []).map(t => Array.isArray(t) ? t[0] : ''))).forEach(x => E(`задание «${x}» повторяется — каждое задание своё`));
       if (s !== u.hours) E(`сумма часов ${s}, нужно ровно ${u.hours}`);
+      if (['ДЗ', 'З'].includes(u.form)) { const lw = d.works[d.works.length - 1]; const lt = (lw.tasks || [])[(lw.tasks || []).length - 1] || []; if (!/зач[её]т/i.test(lt[0] || '') || lt[1] !== LESSON) E(`последнее задание — отдельная пара «Дифференцированный зачёт» (2 ч)`); }
       return e;
     },
     apply: d => { u.works = d.works.map(w => ({ name: w.name, codes: w.codes || '', tasks: w.tasks.map(t => [t[0], Number(t[1])]) })); },
