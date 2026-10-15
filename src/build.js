@@ -23,6 +23,7 @@ const FORM = {
   'ДР': ['КР', 'контрольной работы', 'контрольная работа'], 'КР': ['КР', 'контрольной работы', 'контрольная работа'],
 };
 const formGen = f => (FORM[f] ? FORM[f][1] : f);
+const formDat = f => ({ 'Э': 'экзамену', 'ДЗ': 'дифференцированному зачёту', 'З': 'зачёту' })[f] || 'экзамену';
 const formNom = f => (FORM[f] ? FORM[f][2] : f);
 const formAbbr = f => (FORM[f] ? FORM[f][0] : f);
 
@@ -541,9 +542,9 @@ function buildDocument(ctx) {
       } else if (fos.exams[`${m.code}|${b.label}`] || fos.exams[m.code]) {
         const ex = fos.exams[`${m.code}|${b.label}`] || fos.exams[m.code];
         f5.push(p(`Форма — ${formNom(b.form)}. Проводится по билетам: два теоретических вопроса и одно практическое задание. Критерии — п. 5.1.`),
-          caption('Вопросы к экзамену'), ...olist(ex.questions),
-          caption('Типы практических задач к экзамену'), ...olist(ex.tasks),
-          caption('Образец экзаменационного билета'), ticket(m, b.label, ex, b.form));
+          caption(`Вопросы к ${formDat(b.form)}`), ...olist(ex.questions),
+          caption(`Типы практических задач к ${formDat(b.form)}`), ...olist(ex.tasks),
+          caption(b.form === 'Э' ? 'Образец экзаменационного билета' : `Образец билета к ${formDat(b.form)}`), ticket(m, b.label, ex, b.form));
       }
     });
   });
