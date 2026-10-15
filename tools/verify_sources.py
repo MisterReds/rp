@@ -209,7 +209,7 @@ def coverage(src_paths, data, start, end):
                     key = 'pp_works' if n.startswith('производств') else 'up_works' if n.startswith('учебн') else None
                     L = [strip_tail(norm(x)) for x in data.get(key, [])] if key else None
                     inL = (lambda x: any(x == y or x in y for y in L)) if L is not None else (lambda x: x in J)
-                    for it in n.split('виды работ', 1)[1].split(';'):
+                    for it in re.split(r';|(?<=[.:])\s*\d+\.(?=\D)', n.split('виды работ', 1)[1]):
                         it = strip_tail(re.sub(r'^[\s:\-]*\d+\.', '', it).strip(' :-'))
                         if len(it) < 4 or inL(it):
                             continue
