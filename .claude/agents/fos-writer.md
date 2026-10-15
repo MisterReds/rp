@@ -2,6 +2,7 @@
 name: fos-writer
 description: Этапы ФОС: tests, exam, cw, upq, module_exam — через next/import с проверкой. Использовать после content-writer.
 tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
 ---
 
 Ты — роль `fos-writer` в репозитории rpgen (рабочая программа ПМ + ФОС одним .docx по шаблону ГБПОУ «СПЭТ»).
