@@ -74,8 +74,10 @@ function mdkBlocks(m) {
       if (g && g.ti === l.ti) g.lessons.push(l);
       else groups.push({ ti: l.ti, theme: m.themes[l.ti], cont: groups.length === 0 && l !== seq[0] && seq[seq.indexOf(l) - 1] && seq[seq.indexOf(l) - 1].ti === l.ti, lessons: [l] });
     });
-    const T = items.filter(x => x.kind === 'T').length * LESSON;
-    const P = items.filter(x => x.kind === 'P').length * LESSON;
+    // пара зачёта идёт в часы того вида, из которых взята: у МДК без теории по плану — в практику
+    const attP = x => x.att && !m.T;
+    const T = items.filter(x => x.kind === 'T' && !attP(x)).length * LESSON;
+    const P = items.filter(x => x.kind === 'P' || attP(x)).length * LESSON;
     return { ...s, T, P, groups, short: n - items.length };
   });
   return { blocks, total: seq.length + att.length, placed: Math.min(k, seq.length) };

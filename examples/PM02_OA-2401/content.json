@@ -2099,45 +2099,45 @@
     {
      "q": "Какой конфигурационный файл BIND в Debian содержит параметры работы сервера, такие как forwarders и listen-on?",
      "options": [
-      "resolv.conf.local",
-      "hosts.allow.conf",
-      "nsswitch.conf.dns",
-      "named.conf.options"
+      "resolv.conf.options",
+      "hosts.allow.options",
+      "named.conf.options",
+      "nsswitch.conf.options"
      ],
-     "answer": 3,
+     "answer": 2,
      "t": 1
     },
     {
      "q": "Какая команда проверяет синтаксис основного конфигурационного файла BIND?",
      "options": [
       "named-checkhost",
-      "named-checkconf",
       "dig-checkconf",
+      "named-checkconf",
       "rndc-checkzone"
      ],
-     "answer": 1,
+     "answer": 2,
      "t": 1
     },
     {
      "q": "Какая запись зоны BIND определяет основной сервер имён и серийный номер зоны?",
      "options": [
       "PTR",
-      "SOA",
       "TXT",
+      "SOA",
       "SRV"
      ],
-     "answer": 1,
+     "answer": 2,
      "t": 1
     },
     {
      "q": "Какая команда перечитывает конфигурацию BIND без остановки службы?",
      "options": [
       "rndc flushdb",
+      "rndc reload",
       "rndc status",
-      "rndc halt",
-      "rndc reload"
+      "rndc halt"
      ],
-     "answer": 3,
+     "answer": 1,
      "t": 1
     },
     {
@@ -2154,12 +2154,12 @@
     {
      "q": "Какой пакет в Debian и Ubuntu устанавливает DHCP-сервер ISC?",
      "options": [
+      "bind9-dhcp-server",
       "isc-dhcp-server",
-      "bind9-dhcp",
-      "dnsmasq-core",
-      "tftpd-dhcp"
+      "dnsmasq-dhcp-core",
+      "tftpd-dhcp-server"
      ],
-     "answer": 0,
+     "answer": 1,
      "t": 2
     },
     {
@@ -2177,31 +2177,31 @@
      "q": "Какая директива dhcpd.conf задаёт диапазон выдаваемых адресов?",
      "options": [
       "lease",
-      "range",
       "allow",
-      "option"
-     ],
-     "answer": 1,
-     "t": 2
-    },
-    {
-     "q": "Какая директива dhcpd.conf закрепляет адрес за конкретным клиентом по MAC-адресу?",
-     "options": [
-      "group с range",
-      "pool с deny",
-      "class с match",
-      "host с fixed-address"
+      "option",
+      "range"
      ],
      "answer": 3,
      "t": 2
     },
     {
+     "q": "Какая директива dhcpd.conf закрепляет адрес за конкретным клиентом по MAC-адресу?",
+     "options": [
+      "host с fixed-address",
+      "group с fixed-address",
+      "pool с fixed-address",
+      "class с fixed-address"
+     ],
+     "answer": 0,
+     "t": 2
+    },
+    {
      "q": "В каком файле ISC DHCP-сервер хранит базу выданных аренд?",
      "options": [
+      "dhcpd.leases~",
       "dhcpd.pools",
-      "dhcpd.hosts",
       "dhcpd.leases",
-      "dhcpd.state"
+      "dhcpd.hosts"
      ],
      "answer": 2,
      "t": 2
@@ -2209,56 +2209,56 @@
     {
      "q": "Какой файл на NFS-сервере описывает экспортируемые каталоги и права клиентов?",
      "options": [
-      "/etc/fstab",
-      "/etc/hosts",
-      "/etc/exports",
-      "/etc/passwd"
+      "/etc/fstab.d",
+      "/etc/hosts.d",
+      "/etc/passwd.d",
+      "/etc/exports"
      ],
-     "answer": 2,
+     "answer": 3,
      "t": 3
     },
     {
      "q": "Какая команда применяет изменения файла exports без перезапуска службы NFS?",
      "options": [
-      "mount -a",
       "exportfs -ra",
+      "mount -a",
       "showmount -d",
       "nfsstat -c"
      ],
-     "answer": 1,
+     "answer": 0,
      "t": 3
     },
     {
      "q": "Какой параметр экспорта NFS сопоставляет администратора клиента с анонимным пользователем на сервере?",
      "options": [
+      "root_squash",
       "no_root_squash",
       "all_squash",
-      "root_squash",
       "no_all_squash"
      ],
-     "answer": 2,
+     "answer": 0,
      "t": 3
     },
     {
      "q": "Какой файл содержит основные настройки сервера Samba?",
      "options": [
-      "smb.conf",
       "samba.ini",
       "smbd.cfg",
-      "netbios.conf"
+      "netbios.conf",
+      "smb.conf"
      ],
-     "answer": 0,
+     "answer": 3,
      "t": 3
     },
     {
      "q": "Какая утилита проверяет корректность файла smb.conf?",
      "options": [
       "smbclient",
+      "testparm",
       "nmblookup",
-      "pdbedit",
-      "testparm"
+      "pdbedit"
      ],
-     "answer": 3,
+     "answer": 1,
      "t": 3
     },
     {
@@ -2275,32 +2275,32 @@
     {
      "q": "Какой порт TCP использует управляющее соединение протокола FTP?",
      "options": [
-      "21",
       "22",
+      "21",
       "25",
       "53"
      ],
-     "answer": 0,
+     "answer": 1,
      "t": 3
     },
     {
      "q": "Какая служба Linux реализует контроллер домена Active Directory совместимый с клиентами Windows?",
      "options": [
-      "CUPS",
-      "Nginx",
-      "Samba AD DC",
-      "Chrony"
+      "CUPS-сервер",
+      "Nginx-сервер",
+      "Chrony-сервер",
+      "Samba AD DC"
      ],
-     "answer": 2,
+     "answer": 3,
      "t": 4
     },
     {
      "q": "Какая утилита Samba используется для первоначального развёртывания контроллера домена?",
      "options": [
-      "smbpasswd -a",
-      "net usershare",
+      "smbpasswd -a domain-user",
+      "net usershare add domain",
       "samba-tool domain provision",
-      "winbindd -D"
+      "winbindd -D domain-all"
      ],
      "answer": 2,
      "t": 4
@@ -2309,9 +2309,9 @@
      "q": "Какой протокол FreeIPA использует для проверки подлинности наряду с LDAP?",
      "options": [
       "Kerberos",
-      "Telnet",
-      "TFTP",
-      "SNMPv1"
+      "Telnet-TLS",
+      "TFTP-TLS",
+      "SNMP-TLS"
      ],
      "answer": 0,
      "t": 4
@@ -2319,9 +2319,9 @@
     {
      "q": "Какая команда FreeIPA устанавливает и настраивает сервер каталога в Linux?",
      "options": [
-      "ipa-client-join",
-      "ipa-user-add",
-      "ipa-key-cert",
+      "ipa-client-install",
+      "ipa-user-add-all",
+      "ipa-key-cert-sync",
       "ipa-server-install"
      ],
      "answer": 3,
@@ -2330,23 +2330,23 @@
     {
      "q": "Как называется утилита Samba для создания учётной записи пользователя домена?",
      "options": [
-      "useradd --domain",
-      "adduser --smb",
+      "useradd --domain-add",
       "samba-tool user create",
-      "net ads join"
+      "adduser --smb --ad-1",
+      "net ads join -U us"
      ],
-     "answer": 2,
+     "answer": 1,
      "t": 4
     },
     {
      "q": "Какая команда вводит клиентский компьютер на Linux в домен Samba с помощью realmd?",
      "options": [
       "samba start",
-      "realm join",
       "kinit root",
+      "realm join",
       "hostnamectl"
      ],
-     "answer": 1,
+     "answer": 2,
      "t": 4
     },
     {
@@ -2363,45 +2363,45 @@
     {
      "q": "Какая директива Nginx направляет запросы к бэкенд-серверу при работе в режиме обратного прокси?",
      "options": [
-      "root",
-      "index",
-      "listen",
-      "proxy_pass"
+      "root_path",
+      "proxy_pass",
+      "index_file",
+      "listen_port"
      ],
-     "answer": 3,
+     "answer": 1,
      "t": 5
     },
     {
      "q": "Какой параметр Apache задаёт каталог с содержимым виртуального хоста?",
      "options": [
       "ServerAdmin",
-      "ErrorLog",
-      "KeepAlive",
-      "DocumentRoot"
+      "DocumentRoot",
+      "ErrorLogFile",
+      "KeepAliveOn"
      ],
-     "answer": 3,
+     "answer": 1,
      "t": 5
     },
     {
      "q": "Какая команда Nginx проверяет синтаксис конфигурации перед перезагрузкой?",
      "options": [
       "nginx -s stop",
-      "nginx -t",
       "nginx -v",
-      "nginx -V"
+      "nginx -V",
+      "nginx -t"
      ],
-     "answer": 1,
+     "answer": 3,
      "t": 5
     },
     {
      "q": "Что делает обратный прокси-сервер для внешних клиентов?",
      "options": [
+      "шифрует диск внутренних серверов приложений",
+      "выдаёт адреса клиентам внутренних сетей",
       "принимает запросы вместо внутренних серверов",
-      "шифрует диск сервера",
-      "выдаёт адреса по DHCP",
-      "ведёт учёт печати"
+      "ведёт учёт печати для внутренних клиентов"
      ],
-     "answer": 0,
+     "answer": 2,
      "t": 5
     },
     {
@@ -2409,87 +2409,87 @@
      "options": [
       "location",
       "server_name",
-      "rewrite",
-      "upstream"
+      "upstream",
+      "rewrite"
      ],
-     "answer": 3,
+     "answer": 2,
      "t": 5
     },
     {
      "q": "Какая утилита пакета OpenSSL создаёт закрытый ключ и запрос на сертификат?",
      "options": [
-      "openssl dgst",
       "openssl req",
+      "openssl dgst",
       "openssl enc",
       "openssl rand"
      ],
-     "answer": 1,
+     "answer": 0,
      "t": 6
     },
     {
      "q": "Какой формат содержит запрос на подпись сертификата, отправляемый в центр сертификации?",
      "options": [
       "CRL",
-      "PEM-ключ",
       "CSR",
+      "PEM-ключ",
       "OCSP"
      ],
-     "answer": 2,
+     "answer": 1,
      "t": 6
     },
     {
      "q": "Какая команда openssl подписывает запрос корневым ключом центра сертификации?",
      "options": [
-      "openssl ca",
       "openssl s_client",
       "openssl speed",
+      "openssl ca",
       "openssl version"
      ],
-     "answer": 0,
+     "answer": 2,
      "t": 6
     },
     {
      "q": "Какой файл в структуре OpenSSL CA хранит серийные номера выданных сертификатов?",
      "options": [
       "index.txt",
-      "openssl.cnf",
       "serial",
+      "openssl.cnf",
       "crlnumber"
      ],
-     "answer": 2,
+     "answer": 1,
      "t": 6
     },
     {
      "q": "Какой пакет в Linux реализует печатный сервер CUPS?",
      "options": [
-      "cups",
       "cupsd-ntp",
       "print-bind",
-      "lpd-smb"
+      "lpd-smb",
+      "cups"
      ],
-     "answer": 0,
+     "answer": 3,
      "t": 7
     },
     {
      "q": "Какой порт TCP использует веб-интерфейс администрирования CUPS по умолчанию?",
      "options": [
-      "631",
       "80",
       "3306",
+      "631",
       "5432"
      ],
-     "answer": 0,
+     "answer": 2,
      "t": 7
     },
     {
      "q": "Какая команда выводит состояние принтеров и очередей печати CUPS?",
      "options": [
-      "lsblk -f",
       "lpstat -p",
-      "lsusb -v",
-      "lspci -k"
+      "lsblk -f -a",
+      "lsusb -v -t",
+      "lspci -k -v"
      ],
-     "answer": 1,
+     "answer": 0,
      "t": 7
     },
     {
@@ -2506,34 +2506,34 @@
     {
      "q": "Какая служба в современных дистрибутивах Linux реализует клиент и сервер NTP как замену ntpd?",
      "options": [
+      "chrony",
       "cupsd",
       "named",
-      "chrony",
       "vsftpd"
      ],
-     "answer": 2,
+     "answer": 0,
      "t": 8
     },
     {
      "q": "Какой порт UDP использует протокол NTP?",
      "options": [
+      "123",
       "53",
       "67",
-      "123",
       "161"
      ],
-     "answer": 2,
+     "answer": 0,
      "t": 8
     },
     {
      "q": "Какая команда chrony показывает источники времени и смещение часов?",
      "options": [
-      "chronyd stop",
-      "chronyc sources",
-      "chronyc dump",
-      "chronyc keygen"
+      "chronyd stop now",
+      "chronyc dump all",
+      "chronyc keygen id",
+      "chronyc sources"
      ],
-     "answer": 1,
+     "answer": 3,
      "t": 8
     },
     {
@@ -2551,75 +2551,75 @@
      "q": "Какой уровень stratum имеет эталонный источник времени, подключённый к атомным часам или GPS?",
      "options": [
       "5",
+      "0",
       "10",
-      "15",
-      "0"
+      "15"
      ],
-     "answer": 3,
+     "answer": 1,
      "t": 8
     },
     {
      "q": "Какая директива chrony.conf разрешает клиентам из подсети получать время от сервера?",
      "options": [
       "deny",
-      "cmdallow",
       "allow",
+      "cmdallow",
       "local"
      ],
-     "answer": 2,
+     "answer": 1,
      "t": 8
     },
     {
      "q": "Какая запись зоны BIND задаёт псевдоним для существующего имени?",
      "options": [
-      "NS",
+      "NSEC3",
+      "DNSKEY",
       "CNAME",
-      "SOA",
-      "MX"
+      "NAPTR"
      ],
-     "answer": 1,
+     "answer": 2,
      "t": 1
     },
     {
      "q": "Какой параметр named.conf разрешает передачу зоны только указанным вторичным серверам?",
      "options": [
-      "allow-query",
-      "also-notify",
-      "forwarders",
-      "allow-transfer"
+      "allow-query-cache",
+      "also-notify-all",
+      "allow-transfer",
+      "forwarders-only"
      ],
-     "answer": 3,
+     "answer": 2,
      "t": 1
     },
     {
      "q": "Какой тип зоны BIND используется на вторичном сервере имён?",
      "options": [
-      "slave (secondary)",
       "master (primary)",
-      "forward",
-      "hint"
+      "forward (proxy)",
+      "hint (root-zone)",
+      "slave (secondary)"
      ],
-     "answer": 0,
+     "answer": 3,
      "t": 1
     },
     {
      "q": "Какая директива dhcpd.conf задаёт адрес шлюза для клиентов?",
      "options": [
       "option domain-name",
-      "default-lease-time",
       "option routers",
+      "default-lease-time",
       "max-lease-time"
      ],
-     "answer": 2,
+     "answer": 1,
      "t": 2
     },
     {
      "q": "Какая директива dhcpd.conf задаёт адреса DNS-серверов для клиентов?",
      "options": [
       "option domain-name-servers",
-      "option subnet-mask",
+      "option subnet-mask-list",
       "option broadcast-address",
-      "option routers"
+      "option routers-list-all"
      ],
      "answer": 0,
      "t": 2
@@ -2639,22 +2639,22 @@
      "q": "Какой параметр в smb.conf определяет рабочую группу или домен, к которому относится сервер?",
      "options": [
       "hosts allow",
-      "workgroup",
       "log level",
+      "workgroup",
       "guest ok"
      ],
-     "answer": 1,
+     "answer": 2,
      "t": 3
     },
     {
      "q": "Какая команда подключает сетевой каталог NFS к клиенту Linux?",
      "options": [
       "mount -t ntfs",
-      "mount -t nfs",
       "mount -t cifsd",
-      "mount -t swap"
+      "mount -t swap",
+      "mount -t nfs"
      ],
-     "answer": 1,
+     "answer": 3,
      "t": 3
     },
     {
@@ -2662,41 +2662,41 @@
      "options": [
       "browseable = no",
       "read only = yes",
-      "writable = yes",
-      "public = no"
+      "public = no",
+      "writable = yes"
      ],
-     "answer": 2,
+     "answer": 3,
      "t": 3
     },
     {
      "q": "Какое расширение службы FTP шифрует канал передачи данных протоколом TLS?",
      "options": [
+      "FTPS",
       "SFTP-over-NFS",
       "TFTP",
-      "FTPD",
-      "FTPS"
+      "FTPD"
      ],
-     "answer": 3,
+     "answer": 0,
      "t": 3
     },
     {
      "q": "Какой параметр vsftpd.conf запрещает анонимный вход на FTP-сервер?",
      "options": [
       "local_enable=NO",
-      "anonymous_enable=NO",
       "write_enable=NO",
-      "chroot_local_user=NO"
+      "chroot_local_user=NO",
+      "anonymous_enable=NO"
      ],
-     "answer": 1,
+     "answer": 3,
      "t": 3
     },
     {
      "q": "Какая роль DNS необходима для работы Samba AD DC и клиентов домена?",
      "options": [
-      "MX-записи почты",
-      "TXT-записи SPF",
+      "MX-записи почты домена",
+      "TXT-записи SPF домена",
       "SRV-записи служб домена",
-      "PTR-записи подсетей"
+      "PTR-записи подсети домена"
      ],
      "answer": 2,
      "t": 4
@@ -2704,9 +2704,9 @@
     {
      "q": "Какой протокол Kerberos отвечает за выдачу билета на получение билетов (TGT)?",
      "options": [
-      "TGS (служба билетов)",
-      "NTP (служба времени)",
-      "DHCP (служба адресов)",
+      "TGS (служба выдачи билетов)",
+      "NTP (служба точного времени)",
+      "DHCP (служба выдачи адресов)",
       "AS (служба аутентификации)"
      ],
      "answer": 3,
@@ -2715,45 +2715,45 @@
     {
      "q": "Какой каталог Nginx в Debian содержит ссылки на включённые виртуальные хосты?",
      "options": [
-      "sites-enabled",
       "sites-online",
       "hosts-active",
-      "conf-ready"
+      "sites-enabled",
+      "conf-available"
      ],
-     "answer": 0,
+     "answer": 2,
      "t": 5
     },
     {
      "q": "Какая команда Let’s Encrypt-клиента certbot выпускает сертификат для домена и настраивает Nginx?",
      "options": [
-      "certbot --dhcp",
       "certbot --nginx",
-      "certbot --nfs",
-      "certbot --ntp"
+      "certbot --dhcp1",
+      "certbot --nfs-1",
+      "certbot --ntp-1"
      ],
-     "answer": 1,
+     "answer": 0,
      "t": 6
     },
     {
      "q": "Какая директива cupsd.conf разрешает доступ к веб-интерфейсу CUPS из локальной сети?",
      "options": [
-      "ListenOnly",
-      "MaxJobs",
+      "ListenOnly из блока Policy",
       "Allow из блока Location",
-      "LogLevel"
+      "MaxJobs из блока Printer",
+      "LogLevel из блока Server"
      ],
-     "answer": 2,
+     "answer": 1,
      "t": 7
     },
     {
      "q": "Какая команда ставит принтер в очередь CUPS из командной строки?",
      "options": [
-      "lpq -a",
-      "lprm -",
-      "lpmove",
-      "lpadmin -p"
+      "lpq -a -P -",
+      "lpadmin -p",
+      "lprm -P - -",
+      "lpmove -P -"
      ],
-     "answer": 3,
+     "answer": 1,
      "t": 7
     }
    ],
@@ -2763,10 +2763,10 @@
      "options": [
       "#include <sh>",
       "@echo bash",
-      "<?bash ?>",
-      "#!/bin/bash"
+      "#!/bin/bash",
+      "<?bash ?>"
      ],
-     "answer": 3,
+     "answer": 2,
      "t": 1
     },
     {
@@ -2774,10 +2774,10 @@
      "options": [
       "chown u+x script.sh",
       "chgrp u+x script.sh",
-      "chmod u+x script.sh",
-      "touch u+x script.sh"
+      "touch u+x script.sh",
+      "chmod u+x script.sh"
      ],
-     "answer": 2,
+     "answer": 3,
      "t": 1
     },
     {
@@ -2794,45 +2794,45 @@
     {
      "q": "Какая конструкция Bash перебирает значения списка?",
      "options": [
-      "for i in 1 2 3; do echo $i; done",
       "foreach i (1 2 3) { echo }",
       "loop i = 1..3 begin echo end",
-      "repeat 3 times { echo }"
+      "repeat 3 times { echo }",
+      "for i in 1 2 3; do echo $i; done"
      ],
-     "answer": 0,
+     "answer": 3,
      "t": 1
     },
     {
      "q": "Как в Bash обратиться к первому аргументу, переданному скрипту?",
      "options": [
-      "$0",
       "$1",
+      "$0",
       "$#",
       "$*"
      ],
-     "answer": 1,
+     "answer": 0,
      "t": 1
     },
     {
      "q": "Какой оператор в Bash проверяет существование обычного файла в условии test?",
      "options": [
       "-d",
-      "-f",
       "-z",
+      "-f",
       "-n"
      ],
-     "answer": 1,
+     "answer": 2,
      "t": 1
     },
     {
      "q": "Какой символ используется для перенаправления вывода команды в файл с добавлением в конец?",
      "options": [
-      ">",
       ">>",
+      ">",
       "<",
       "|"
      ],
-     "answer": 1,
+     "answer": 0,
      "t": 1
     },
     {
@@ -2840,43 +2840,43 @@
      "options": [
       "tar",
       "grep",
-      "sed",
-      "cron"
+      "cron",
+      "sed"
      ],
-     "answer": 3,
+     "answer": 2,
      "t": 1
     },
     {
      "q": "Какое расширение у файлов сценариев командного интерпретатора PowerShell?",
      "options": [
       ".sh",
-      ".bat",
       ".ps1",
+      ".bat",
       ".py"
      ],
-     "answer": 2,
+     "answer": 1,
      "t": 1
     },
     {
      "q": "Какой формат использует Ansible для описания сценариев (playbook)?",
      "options": [
-      "YAML",
       "INI-таблица",
       "XML-схема",
-      "CSV-файл"
+      "CSV-файл",
+      "YAML"
      ],
-     "answer": 0,
+     "answer": 3,
      "t": 2
     },
     {
      "q": "Какой файл Ansible содержит список управляемых узлов?",
      "options": [
       "playbook.cfg",
+      "inventory",
       "vars.sh",
-      "roles.txt",
-      "inventory"
+      "roles.txt"
      ],
-     "answer": 3,
+     "answer": 1,
      "t": 2
     },
     {
@@ -2884,63 +2884,63 @@
      "options": [
       "RDP",
       "SNMP",
-      "SSH",
-      "Telnet"
+      "Telnet",
+      "SSH"
      ],
-     "answer": 2,
+     "answer": 3,
      "t": 2
     },
     {
      "q": "Какая команда проверяет доступность всех узлов инвентаря модулем ping в Ansible?",
      "options": [
-      "ansible-playbook ping",
       "ansible all -m ping",
+      "ansible-playbook ping",
       "ansible-galaxy ping",
       "ansible-vault ping"
      ],
-     "answer": 1,
+     "answer": 0,
      "t": 2
     },
     {
      "q": "Какое свойство Ansible означает, что повторный запуск не меняет уже настроенную систему?",
      "options": [
-      "идемпотентность",
       "репликация",
       "фрагментация",
+      "идемпотентность",
       "виртуализация"
      ],
-     "answer": 0,
+     "answer": 2,
      "t": 2
     },
     {
      "q": "Какой модуль Ansible устанавливает пакеты в Debian и Ubuntu?",
      "options": [
       "copy",
-      "user",
       "apt",
+      "user",
       "service"
      ],
-     "answer": 2,
+     "answer": 1,
      "t": 2
     },
     {
      "q": "Какая технология позволяет запускать несколько гостевых операционных систем на одном физическом сервере?",
      "options": [
       "кластеризация дисков",
-      "фрагментация",
       "виртуализация",
+      "фрагментация",
       "мультиплексирование"
      ],
-     "answer": 2,
+     "answer": 1,
      "t": 3
     },
     {
      "q": "Какой гипервизор относится к первому типу и работает непосредственно на оборудовании?",
      "options": [
-      "KVM",
+      "VMware ESXi",
       "VirtualBox",
       "VMware Workstation",
-      "QEMU без KVM"
+      "Parallels Desktop"
      ],
      "answer": 0,
      "t": 3
@@ -2972,10 +2972,10 @@
      "options": [
       "docker exec",
       "docker stop",
-      "docker logs",
-      "docker pull"
+      "docker pull",
+      "docker logs"
      ],
-     "answer": 3,
+     "answer": 2,
      "t": 4
     },
     {
@@ -4037,7 +4037,7 @@
        "Для хранения подготовлено 4 диска(ов) ВМ по 100 ГБ и 2 диска(ов) по 50 ГБ. Определите суммарный объём виртуальных дисков при фиксированном размере, а также занятый объём при динамическом выделении, если заполнено 40 % каждого диска.",
        "Запись в crontab имеет вид «30 1,13 * * 0,6 /opt/backup.sh». Определите, в какие моменты запускается скрипт, и рассчитайте число запусков за одни сутки и за неделю (7 суток)."
       ],
-      "answer": "2) Доступно 256-32=224 ГБ; ВМ 224//10=22; остаток 4 ГБ; потребуется 176 vCPU. 3) Фиксированно 4×100+2×50=500 ГБ; при динамическом выделении занято 40 % = 200 ГБ. 4) Минут в часе: 1, часов в сутки: 2 → 2 запусков в запускаемый день; дней недели в расписании: 2; за неделю 4 запусков. 1) Ключевые пункты: Тип 1 работает на оборудовании (KVM, Hyper-V, ESXi, Xen); тип 2 — внутри ОС хоста (VirtualBox, VMware Workstation)."
+      "answer": "2) Доступно 256-32=224 ГБ; ВМ 224//10=22; остаток 4 ГБ; потребуется 176 vCPU. 3) Фиксированно 4×100+2×50=500 ГБ; при динамическом выделении занято 40 % = 200 ГБ. 4) Минут в часе: 1, часов в сутки: 2 → 2 запусков в запускаемый день; дней недели в расписании: 2; за неделю 4 запусков. 1) Ключевые пункты: Тип 1 работает на оборудовании (Hyper-V, VMware ESXi, Xen); тип 2 — внутри ОС хоста (VirtualBox, VMware Workstation)."
      },
      {
       "tasks": [
@@ -5154,45 +5154,45 @@
      {
       "q": "Какой конфигурационный файл BIND в Debian содержит параметры работы сервера, такие как forwarders и listen-on?",
       "options": [
-       "resolv.conf.local",
-       "hosts.allow.conf",
-       "nsswitch.conf.dns",
-       "named.conf.options"
+       "resolv.conf.options",
+       "hosts.allow.options",
+       "named.conf.options",
+       "nsswitch.conf.options"
       ],
-      "answer": 3,
+      "answer": 2,
       "t": 1
      },
      {
       "q": "Какая команда проверяет синтаксис основного конфигурационного файла BIND?",
       "options": [
        "named-checkhost",
-       "named-checkconf",
        "dig-checkconf",
+       "named-checkconf",
        "rndc-checkzone"
       ],
-      "answer": 1,
+      "answer": 2,
       "t": 1
      },
      {
       "q": "Какая запись зоны BIND определяет основной сервер имён и серийный номер зоны?",
       "options": [
        "PTR",
-       "SOA",
        "TXT",
+       "SOA",
        "SRV"
       ],
-      "answer": 1,
+      "answer": 2,
       "t": 1
      },
      {
       "q": "Какая команда перечитывает конфигурацию BIND без остановки службы?",
       "options": [
        "rndc flushdb",
+       "rndc reload",
        "rndc status",
-       "rndc halt",
-       "rndc reload"
+       "rndc halt"
       ],
-      "answer": 3,
+      "answer": 1,
       "t": 1
      },
      {
@@ -5209,12 +5209,12 @@
      {
       "q": "Какой пакет в Debian и Ubuntu устанавливает DHCP-сервер ISC?",
       "options": [
+       "bind9-dhcp-server",
        "isc-dhcp-server",
-       "bind9-dhcp",
-       "dnsmasq-core",
-       "tftpd-dhcp"
+       "dnsmasq-dhcp-core",
+       "tftpd-dhcp-server"
       ],
-      "answer": 0,
+      "answer": 1,
       "t": 2
      },
      {
@@ -5232,31 +5232,31 @@
       "q": "Какая директива dhcpd.conf задаёт диапазон выдаваемых адресов?",
       "options": [
        "lease",
-       "range",
        "allow",
-       "option"
-      ],
-      "answer": 1,
-      "t": 2
-     },
-     {
-      "q": "Какая директива dhcpd.conf закрепляет адрес за конкретным клиентом по MAC-адресу?",
-      "options": [
-       "group с range",
-       "pool с deny",
-       "class с match",
-       "host с fixed-address"
+       "option",
+       "range"
       ],
       "answer": 3,
       "t": 2
      },
      {
+      "q": "Какая директива dhcpd.conf закрепляет адрес за конкретным клиентом по MAC-адресу?",
+      "options": [
+       "host с fixed-address",
+       "group с fixed-address",
+       "pool с fixed-address",
+       "class с fixed-address"
+      ],
+      "answer": 0,
+      "t": 2
+     },
+     {
       "q": "В каком файле ISC DHCP-сервер хранит базу выданных аренд?",
       "options": [
+       "dhcpd.leases~",
        "dhcpd.pools",
-       "dhcpd.hosts",
        "dhcpd.leases",
-       "dhcpd.state"
+       "dhcpd.hosts"
       ],
       "answer": 2,
       "t": 2
@@ -5264,56 +5264,56 @@
      {
       "q": "Какой файл на NFS-сервере описывает экспортируемые каталоги и права клиентов?",
       "options": [
-       "/etc/fstab",
-       "/etc/hosts",
-       "/etc/exports",
-       "/etc/passwd"
+       "/etc/fstab.d",
+       "/etc/hosts.d",
+       "/etc/passwd.d",
+       "/etc/exports"
       ],
-      "answer": 2,
+      "answer": 3,
       "t": 3
      },
      {
       "q": "Какая команда применяет изменения файла exports без перезапуска службы NFS?",
       "options": [
-       "mount -a",
        "exportfs -ra",
+       "mount -a",
        "showmount -d",
        "nfsstat -c"
       ],
-      "answer": 1,
+      "answer": 0,
       "t": 3
      },
      {
       "q": "Какой параметр экспорта NFS сопоставляет администратора клиента с анонимным пользователем на сервере?",
       "options": [
+       "root_squash",
        "no_root_squash",
        "all_squash",
-       "root_squash",
        "no_all_squash"
       ],
-      "answer": 2,
+      "answer": 0,
       "t": 3
      },
      {
       "q": "Какой файл содержит основные настройки сервера Samba?",
       "options": [
-       "smb.conf",
        "samba.ini",
        "smbd.cfg",
-       "netbios.conf"
+       "netbios.conf",
+       "smb.conf"
       ],
-      "answer": 0,
+      "answer": 3,
       "t": 3
      },
      {
       "q": "Какая утилита проверяет корректность файла smb.conf?",
       "options": [
        "smbclient",
+       "testparm",
        "nmblookup",
-       "pdbedit",
-       "testparm"
+       "pdbedit"
       ],
-      "answer": 3,
+      "answer": 1,
       "t": 3
      },
      {
@@ -5330,32 +5330,32 @@
      {
       "q": "Какой порт TCP использует управляющее соединение протокола FTP?",
       "options": [
-       "21",
        "22",
+       "21",
        "25",
        "53"
       ],
-      "answer": 0,
+      "answer": 1,
       "t": 3
      },
      {
       "q": "Какая служба Linux реализует контроллер домена Active Directory совместимый с клиентами Windows?",
       "options": [
-       "CUPS",
-       "Nginx",
-       "Samba AD DC",
-       "Chrony"
+       "CUPS-сервер",
+       "Nginx-сервер",
+       "Chrony-сервер",
+       "Samba AD DC"
       ],
-      "answer": 2,
+      "answer": 3,
       "t": 4
      },
      {
       "q": "Какая утилита Samba используется для первоначального развёртывания контроллера домена?",
       "options": [
-       "smbpasswd -a",
-       "net usershare",
+       "smbpasswd -a domain-user",
+       "net usershare add domain",
        "samba-tool domain provision",
-       "winbindd -D"
+       "winbindd -D domain-all"
       ],
       "answer": 2,
       "t": 4
@@ -5364,9 +5364,9 @@
       "q": "Какой протокол FreeIPA использует для проверки подлинности наряду с LDAP?",
       "options": [
        "Kerberos",
-       "Telnet",
-       "TFTP",
-       "SNMPv1"
+       "Telnet-TLS",
+       "TFTP-TLS",
+       "SNMP-TLS"
       ],
       "answer": 0,
       "t": 4
@@ -5378,9 +5378,9 @@
      {
       "q": "Какая команда FreeIPA устанавливает и настраивает сервер каталога в Linux?",
       "options": [
-       "ipa-client-join",
-       "ipa-user-add",
-       "ipa-key-cert",
+       "ipa-client-install",
+       "ipa-user-add-all",
+       "ipa-key-cert-sync",
        "ipa-server-install"
       ],
       "answer": 3,
@@ -5389,23 +5389,23 @@
      {
       "q": "Как называется утилита Samba для создания учётной записи пользователя домена?",
       "options": [
-       "useradd --domain",
-       "adduser --smb",
+       "useradd --domain-add",
        "samba-tool user create",
-       "net ads join"
+       "adduser --smb --ad-1",
+       "net ads join -U us"
       ],
-      "answer": 2,
+      "answer": 1,
       "t": 4
      },
      {
       "q": "Какая команда вводит клиентский компьютер на Linux в домен Samba с помощью realmd?",
       "options": [
        "samba start",
-       "realm join",
        "kinit root",
+       "realm join",
        "hostnamectl"
       ],
-      "answer": 1,
+      "answer": 2,
       "t": 4
      },
      {
@@ -5422,45 +5422,45 @@
      {
       "q": "Какая директива Nginx направляет запросы к бэкенд-серверу при работе в режиме обратного прокси?",
       "options": [
-       "root",
-       "index",
-       "listen",
-       "proxy_pass"
+       "root_path",
+       "proxy_pass",
+       "index_file",
+       "listen_port"
       ],
-      "answer": 3,
+      "answer": 1,
       "t": 5
      },
      {
       "q": "Какой параметр Apache задаёт каталог с содержимым виртуального хоста?",
       "options": [
        "ServerAdmin",
-       "ErrorLog",
-       "KeepAlive",
-       "DocumentRoot"
+       "DocumentRoot",
+       "ErrorLogFile",
+       "KeepAliveOn"
       ],
-      "answer": 3,
+      "answer": 1,
       "t": 5
      },
      {
       "q": "Какая команда Nginx проверяет синтаксис конфигурации перед перезагрузкой?",
       "options": [
        "nginx -s stop",
-       "nginx -t",
        "nginx -v",
-       "nginx -V"
+       "nginx -V",
+       "nginx -t"
       ],
-      "answer": 1,
+      "answer": 3,
       "t": 5
      },
      {
       "q": "Что делает обратный прокси-сервер для внешних клиентов?",
       "options": [
+       "шифрует диск внутренних серверов приложений",
+       "выдаёт адреса клиентам внутренних сетей",
        "принимает запросы вместо внутренних серверов",
-       "шифрует диск сервера",
-       "выдаёт адреса по DHCP",
-       "ведёт учёт печати"
+       "ведёт учёт печати для внутренних клиентов"
       ],
-      "answer": 0,
+      "answer": 2,
       "t": 5
      },
      {
@@ -5468,87 +5468,87 @@
       "options": [
        "location",
        "server_name",
-       "rewrite",
-       "upstream"
+       "upstream",
+       "rewrite"
       ],
-      "answer": 3,
+      "answer": 2,
       "t": 5
      },
      {
       "q": "Какая утилита пакета OpenSSL создаёт закрытый ключ и запрос на сертификат?",
       "options": [
-       "openssl dgst",
        "openssl req",
+       "openssl dgst",
        "openssl enc",
        "openssl rand"
       ],
-      "answer": 1,
+      "answer": 0,
       "t": 6
      },
      {
       "q": "Какой формат содержит запрос на подпись сертификата, отправляемый в центр сертификации?",
       "options": [
        "CRL",
-       "PEM-ключ",
        "CSR",
+       "PEM-ключ",
        "OCSP"
       ],
-      "answer": 2,
+      "answer": 1,
       "t": 6
      },
      {
       "q": "Какая команда openssl подписывает запрос корневым ключом центра сертификации?",
       "options": [
-       "openssl ca",
        "openssl s_client",
        "openssl speed",
+       "openssl ca",
        "openssl version"
       ],
-      "answer": 0,
+      "answer": 2,
       "t": 6
      },
      {
       "q": "Какой файл в структуре OpenSSL CA хранит серийные номера выданных сертификатов?",
       "options": [
        "index.txt",
-       "openssl.cnf",
        "serial",
+       "openssl.cnf",
        "crlnumber"
       ],
-      "answer": 2,
+      "answer": 1,
       "t": 6
      },
      {
       "q": "Какой пакет в Linux реализует печатный сервер CUPS?",
       "options": [
-       "cups",
        "cupsd-ntp",
        "print-bind",
-       "lpd-smb"
+       "lpd-smb",
+       "cups"
       ],
-      "answer": 0,
+      "answer": 3,
       "t": 7
      },
      {
       "q": "Какой порт TCP использует веб-интерфейс администрирования CUPS по умолчанию?",
       "options": [
-       "631",
        "80",
        "3306",
+       "631",
        "5432"
       ],
-      "answer": 0,
+      "answer": 2,
       "t": 7
      },
      {
       "q": "Какая команда выводит состояние принтеров и очередей печати CUPS?",
       "options": [
-       "lsblk -f",
        "lpstat -p",
-       "lsusb -v",
-       "lspci -k"
+       "lsblk -f -a",
+       "lsusb -v -t",
+       "lspci -k -v"
       ],
-      "answer": 1,
+      "answer": 0,
       "t": 7
      },
      {
@@ -5565,34 +5565,34 @@
      {
       "q": "Какая служба в современных дистрибутивах Linux реализует клиент и сервер NTP как замену ntpd?",
       "options": [
+       "chrony",
        "cupsd",
        "named",
-       "chrony",
        "vsftpd"
       ],
-      "answer": 2,
+      "answer": 0,
       "t": 8
      },
      {
       "q": "Какой порт UDP использует протокол NTP?",
       "options": [
+       "123",
        "53",
        "67",
-       "123",
        "161"
       ],
-      "answer": 2,
+      "answer": 0,
       "t": 8
      },
      {
       "q": "Какая команда chrony показывает источники времени и смещение часов?",
       "options": [
-       "chronyd stop",
-       "chronyc sources",
-       "chronyc dump",
-       "chronyc keygen"
+       "chronyd stop now",
+       "chronyc dump all",
+       "chronyc keygen id",
+       "chronyc sources"
       ],
-      "answer": 1,
+      "answer": 3,
       "t": 8
      }
     ]
@@ -5614,75 +5614,75 @@
       "q": "Какой уровень stratum имеет эталонный источник времени, подключённый к атомным часам или GPS?",
       "options": [
        "5",
+       "0",
        "10",
-       "15",
-       "0"
+       "15"
       ],
-      "answer": 3,
+      "answer": 1,
       "t": 8
      },
      {
       "q": "Какая директива chrony.conf разрешает клиентам из подсети получать время от сервера?",
       "options": [
        "deny",
-       "cmdallow",
        "allow",
+       "cmdallow",
        "local"
       ],
-      "answer": 2,
+      "answer": 1,
       "t": 8
      },
      {
       "q": "Какая запись зоны BIND задаёт псевдоним для существующего имени?",
       "options": [
-       "NS",
+       "NSEC3",
+       "DNSKEY",
        "CNAME",
-       "SOA",
-       "MX"
+       "NAPTR"
       ],
-      "answer": 1,
+      "answer": 2,
       "t": 1
      },
      {
       "q": "Какой параметр named.conf разрешает передачу зоны только указанным вторичным серверам?",
       "options": [
-       "allow-query",
-       "also-notify",
-       "forwarders",
-       "allow-transfer"
+       "allow-query-cache",
+       "also-notify-all",
+       "allow-transfer",
+       "forwarders-only"
       ],
-      "answer": 3,
+      "answer": 2,
       "t": 1
      },
      {
       "q": "Какой тип зоны BIND используется на вторичном сервере имён?",
       "options": [
-       "slave (secondary)",
        "master (primary)",
-       "forward",
-       "hint"
+       "forward (proxy)",
+       "hint (root-zone)",
+       "slave (secondary)"
       ],
-      "answer": 0,
+      "answer": 3,
       "t": 1
      },
      {
       "q": "Какая директива dhcpd.conf задаёт адрес шлюза для клиентов?",
       "options": [
        "option domain-name",
-       "default-lease-time",
        "option routers",
+       "default-lease-time",
        "max-lease-time"
       ],
-      "answer": 2,
+      "answer": 1,
       "t": 2
      },
      {
       "q": "Какая директива dhcpd.conf задаёт адреса DNS-серверов для клиентов?",
       "options": [
        "option domain-name-servers",
-       "option subnet-mask",
+       "option subnet-mask-list",
        "option broadcast-address",
-       "option routers"
+       "option routers-list-all"
       ],
       "answer": 0,
       "t": 2
@@ -5702,22 +5702,22 @@
       "q": "Какой параметр в smb.conf определяет рабочую группу или домен, к которому относится сервер?",
       "options": [
        "hosts allow",
-       "workgroup",
        "log level",
+       "workgroup",
        "guest ok"
       ],
-      "answer": 1,
+      "answer": 2,
       "t": 3
      },
      {
       "q": "Какая команда подключает сетевой каталог NFS к клиенту Linux?",
       "options": [
        "mount -t ntfs",
-       "mount -t nfs",
        "mount -t cifsd",
-       "mount -t swap"
+       "mount -t swap",
+       "mount -t nfs"
       ],
-      "answer": 1,
+      "answer": 3,
       "t": 3
      },
      {
@@ -5725,41 +5725,41 @@
       "options": [
        "browseable = no",
        "read only = yes",
-       "writable = yes",
-       "public = no"
+       "public = no",
+       "writable = yes"
       ],
-      "answer": 2,
+      "answer": 3,
       "t": 3
      },
      {
       "q": "Какое расширение службы FTP шифрует канал передачи данных протоколом TLS?",
       "options": [
+       "FTPS",
        "SFTP-over-NFS",
        "TFTP",
-       "FTPD",
-       "FTPS"
+       "FTPD"
       ],
-      "answer": 3,
+      "answer": 0,
       "t": 3
      },
      {
       "q": "Какой параметр vsftpd.conf запрещает анонимный вход на FTP-сервер?",
       "options": [
        "local_enable=NO",
-       "anonymous_enable=NO",
        "write_enable=NO",
-       "chroot_local_user=NO"
+       "chroot_local_user=NO",
+       "anonymous_enable=NO"
       ],
-      "answer": 1,
+      "answer": 3,
       "t": 3
      },
      {
       "q": "Какая роль DNS необходима для работы Samba AD DC и клиентов домена?",
       "options": [
-       "MX-записи почты",
-       "TXT-записи SPF",
+       "MX-записи почты домена",
+       "TXT-записи SPF домена",
        "SRV-записи служб домена",
-       "PTR-записи подсетей"
+       "PTR-записи подсети домена"
       ],
       "answer": 2,
       "t": 4
@@ -5767,9 +5767,9 @@
      {
       "q": "Какой протокол Kerberos отвечает за выдачу билета на получение билетов (TGT)?",
       "options": [
-       "TGS (служба билетов)",
-       "NTP (служба времени)",
-       "DHCP (служба адресов)",
+       "TGS (служба выдачи билетов)",
+       "NTP (служба точного времени)",
+       "DHCP (служба выдачи адресов)",
        "AS (служба аутентификации)"
       ],
       "answer": 3,
@@ -5778,45 +5778,45 @@
      {
       "q": "Какой каталог Nginx в Debian содержит ссылки на включённые виртуальные хосты?",
       "options": [
-       "sites-enabled",
        "sites-online",
        "hosts-active",
-       "conf-ready"
+       "sites-enabled",
+       "conf-available"
       ],
-      "answer": 0,
+      "answer": 2,
       "t": 5
      },
      {
       "q": "Какая команда Let’s Encrypt-клиента certbot выпускает сертификат для домена и настраивает Nginx?",
       "options": [
-       "certbot --dhcp",
        "certbot --nginx",
-       "certbot --nfs",
-       "certbot --ntp"
+       "certbot --dhcp1",
+       "certbot --nfs-1",
+       "certbot --ntp-1"
       ],
-      "answer": 1,
+      "answer": 0,
       "t": 6
      },
      {
       "q": "Какая директива cupsd.conf разрешает доступ к веб-интерфейсу CUPS из локальной сети?",
       "options": [
-       "ListenOnly",
-       "MaxJobs",
+       "ListenOnly из блока Policy",
        "Allow из блока Location",
-       "LogLevel"
+       "MaxJobs из блока Printer",
+       "LogLevel из блока Server"
       ],
-      "answer": 2,
+      "answer": 1,
       "t": 7
      },
      {
       "q": "Какая команда ставит принтер в очередь CUPS из командной строки?",
       "options": [
-       "lpq -a",
-       "lprm -",
-       "lpmove",
-       "lpadmin -p"
+       "lpq -a -P -",
+       "lpadmin -p",
+       "lprm -P - -",
+       "lpmove -P -"
       ],
-      "answer": 3,
+      "answer": 1,
       "t": 7
      }
     ]
@@ -6552,10 +6552,10 @@
       "options": [
        "#include <sh>",
        "@echo bash",
-       "<?bash ?>",
-       "#!/bin/bash"
+       "#!/bin/bash",
+       "<?bash ?>"
       ],
-      "answer": 3,
+      "answer": 2,
       "t": 1
      },
      {
@@ -6563,10 +6563,10 @@
       "options": [
        "chown u+x script.sh",
        "chgrp u+x script.sh",
-       "chmod u+x script.sh",
-       "touch u+x script.sh"
+       "touch u+x script.sh",
+       "chmod u+x script.sh"
       ],
-      "answer": 2,
+      "answer": 3,
       "t": 1
      },
      {
@@ -6583,45 +6583,45 @@
      {
       "q": "Какая конструкция Bash перебирает значения списка?",
       "options": [
-       "for i in 1 2 3; do echo $i; done",
        "foreach i (1 2 3) { echo }",
        "loop i = 1..3 begin echo end",
-       "repeat 3 times { echo }"
+       "repeat 3 times { echo }",
+       "for i in 1 2 3; do echo $i; done"
       ],
-      "answer": 0,
+      "answer": 3,
       "t": 1
      },
      {
       "q": "Как в Bash обратиться к первому аргументу, переданному скрипту?",
       "options": [
-       "$0",
        "$1",
+       "$0",
        "$#",
        "$*"
       ],
-      "answer": 1,
+      "answer": 0,
       "t": 1
      },
      {
       "q": "Какой оператор в Bash проверяет существование обычного файла в условии test?",
       "options": [
        "-d",
-       "-f",
        "-z",
+       "-f",
        "-n"
       ],
-      "answer": 1,
+      "answer": 2,
       "t": 1
      },
      {
       "q": "Какой символ используется для перенаправления вывода команды в файл с добавлением в конец?",
       "options": [
-       ">",
        ">>",
+       ">",
        "<",
        "|"
       ],
-      "answer": 1,
+      "answer": 0,
       "t": 1
      },
      {
@@ -6629,43 +6629,43 @@
       "options": [
        "tar",
        "grep",
-       "sed",
-       "cron"
+       "cron",
+       "sed"
       ],
-      "answer": 3,
+      "answer": 2,
       "t": 1
      },
      {
       "q": "Какое расширение у файлов сценариев командного интерпретатора PowerShell?",
       "options": [
        ".sh",
-       ".bat",
        ".ps1",
+       ".bat",
        ".py"
       ],
-      "answer": 2,
+      "answer": 1,
       "t": 1
      },
      {
       "q": "Какой формат использует Ansible для описания сценариев (playbook)?",
       "options": [
-       "YAML",
        "INI-таблица",
        "XML-схема",
-       "CSV-файл"
+       "CSV-файл",
+       "YAML"
       ],
-      "answer": 0,
+      "answer": 3,
       "t": 2
      },
      {
       "q": "Какой файл Ansible содержит список управляемых узлов?",
       "options": [
        "playbook.cfg",
+       "inventory",
        "vars.sh",
-       "roles.txt",
-       "inventory"
+       "roles.txt"
       ],
-      "answer": 3,
+      "answer": 1,
       "t": 2
      },
      {
@@ -6673,63 +6673,63 @@
       "options": [
        "RDP",
        "SNMP",
-       "SSH",
-       "Telnet"
+       "Telnet",
+       "SSH"
       ],
-      "answer": 2,
+      "answer": 3,
       "t": 2
      },
      {
       "q": "Какая команда проверяет доступность всех узлов инвентаря модулем ping в Ansible?",
       "options": [
-       "ansible-playbook ping",
        "ansible all -m ping",
+       "ansible-playbook ping",
        "ansible-galaxy ping",
        "ansible-vault ping"
       ],
-      "answer": 1,
+      "answer": 0,
       "t": 2
      },
      {
       "q": "Какое свойство Ansible означает, что повторный запуск не меняет уже настроенную систему?",
       "options": [
-       "идемпотентность",
        "репликация",
        "фрагментация",
+       "идемпотентность",
        "виртуализация"
       ],
-      "answer": 0,
+      "answer": 2,
       "t": 2
      },
      {
       "q": "Какой модуль Ansible устанавливает пакеты в Debian и Ubuntu?",
       "options": [
        "copy",
-       "user",
        "apt",
+       "user",
        "service"
       ],
-      "answer": 2,
+      "answer": 1,
       "t": 2
      },
      {
       "q": "Какая технология позволяет запускать несколько гостевых операционных систем на одном физическом сервере?",
       "options": [
        "кластеризация дисков",
-       "фрагментация",
        "виртуализация",
+       "фрагментация",
        "мультиплексирование"
       ],
-      "answer": 2,
+      "answer": 1,
       "t": 3
      },
      {
       "q": "Какой гипервизор относится к первому типу и работает непосредственно на оборудовании?",
       "options": [
-       "KVM",
+       "VMware ESXi",
        "VirtualBox",
        "VMware Workstation",
-       "QEMU без KVM"
+       "Parallels Desktop"
       ],
       "answer": 0,
       "t": 3
@@ -6761,10 +6761,10 @@
       "options": [
        "docker exec",
        "docker stop",
-       "docker logs",
-       "docker pull"
+       "docker pull",
+       "docker logs"
       ],
-      "answer": 3,
+      "answer": 2,
       "t": 4
      }
     ]

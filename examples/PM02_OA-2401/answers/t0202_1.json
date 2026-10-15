@@ -3,45 +3,45 @@
   {
    "q": "Какой конфигурационный файл BIND в Debian содержит параметры работы сервера, такие как forwarders и listen-on?",
    "options": [
-    "resolv.conf.local",
-    "hosts.allow.conf",
-    "nsswitch.conf.dns",
-    "named.conf.options"
+    "resolv.conf.options",
+    "hosts.allow.options",
+    "named.conf.options",
+    "nsswitch.conf.options"
    ],
-   "answer": 3,
+   "answer": 2,
    "t": 1
   },
   {
    "q": "Какая команда проверяет синтаксис основного конфигурационного файла BIND?",
    "options": [
     "named-checkhost",
-    "named-checkconf",
     "dig-checkconf",
+    "named-checkconf",
     "rndc-checkzone"
    ],
-   "answer": 1,
+   "answer": 2,
    "t": 1
   },
   {
    "q": "Какая запись зоны BIND определяет основной сервер имён и серийный номер зоны?",
    "options": [
     "PTR",
-    "SOA",
     "TXT",
+    "SOA",
     "SRV"
    ],
-   "answer": 1,
+   "answer": 2,
    "t": 1
   },
   {
    "q": "Какая команда перечитывает конфигурацию BIND без остановки службы?",
    "options": [
     "rndc flushdb",
+    "rndc reload",
     "rndc status",
-    "rndc halt",
-    "rndc reload"
+    "rndc halt"
    ],
-   "answer": 3,
+   "answer": 1,
    "t": 1
   },
   {
@@ -58,12 +58,12 @@
   {
    "q": "Какой пакет в Debian и Ubuntu устанавливает DHCP-сервер ISC?",
    "options": [
+    "bind9-dhcp-server",
     "isc-dhcp-server",
-    "bind9-dhcp",
-    "dnsmasq-core",
-    "tftpd-dhcp"
+    "dnsmasq-dhcp-core",
+    "tftpd-dhcp-server"
    ],
-   "answer": 0,
+   "answer": 1,
    "t": 2
   },
   {
@@ -81,31 +81,31 @@
    "q": "Какая директива dhcpd.conf задаёт диапазон выдаваемых адресов?",
    "options": [
     "lease",
-    "range",
     "allow",
-    "option"
-   ],
-   "answer": 1,
-   "t": 2
-  },
-  {
-   "q": "Какая директива dhcpd.conf закрепляет адрес за конкретным клиентом по MAC-адресу?",
-   "options": [
-    "group с range",
-    "pool с deny",
-    "class с match",
-    "host с fixed-address"
+    "option",
+    "range"
    ],
    "answer": 3,
    "t": 2
   },
   {
+   "q": "Какая директива dhcpd.conf закрепляет адрес за конкретным клиентом по MAC-адресу?",
+   "options": [
+    "host с fixed-address",
+    "group с fixed-address",
+    "pool с fixed-address",
+    "class с fixed-address"
+   ],
+   "answer": 0,
+   "t": 2
+  },
+  {
    "q": "В каком файле ISC DHCP-сервер хранит базу выданных аренд?",
    "options": [
+    "dhcpd.leases~",
     "dhcpd.pools",
-    "dhcpd.hosts",
     "dhcpd.leases",
-    "dhcpd.state"
+    "dhcpd.hosts"
    ],
    "answer": 2,
    "t": 2
@@ -113,56 +113,56 @@
   {
    "q": "Какой файл на NFS-сервере описывает экспортируемые каталоги и права клиентов?",
    "options": [
-    "/etc/fstab",
-    "/etc/hosts",
-    "/etc/exports",
-    "/etc/passwd"
+    "/etc/fstab.d",
+    "/etc/hosts.d",
+    "/etc/passwd.d",
+    "/etc/exports"
    ],
-   "answer": 2,
+   "answer": 3,
    "t": 3
   },
   {
    "q": "Какая команда применяет изменения файла exports без перезапуска службы NFS?",
    "options": [
-    "mount -a",
     "exportfs -ra",
+    "mount -a",
     "showmount -d",
     "nfsstat -c"
    ],
-   "answer": 1,
+   "answer": 0,
    "t": 3
   },
   {
    "q": "Какой параметр экспорта NFS сопоставляет администратора клиента с анонимным пользователем на сервере?",
    "options": [
+    "root_squash",
     "no_root_squash",
     "all_squash",
-    "root_squash",
     "no_all_squash"
    ],
-   "answer": 2,
+   "answer": 0,
    "t": 3
   },
   {
    "q": "Какой файл содержит основные настройки сервера Samba?",
    "options": [
-    "smb.conf",
     "samba.ini",
     "smbd.cfg",
-    "netbios.conf"
+    "netbios.conf",
+    "smb.conf"
    ],
-   "answer": 0,
+   "answer": 3,
    "t": 3
   },
   {
    "q": "Какая утилита проверяет корректность файла smb.conf?",
    "options": [
     "smbclient",
+    "testparm",
     "nmblookup",
-    "pdbedit",
-    "testparm"
+    "pdbedit"
    ],
-   "answer": 3,
+   "answer": 1,
    "t": 3
   },
   {
@@ -179,32 +179,32 @@
   {
    "q": "Какой порт TCP использует управляющее соединение протокола FTP?",
    "options": [
-    "21",
     "22",
+    "21",
     "25",
     "53"
    ],
-   "answer": 0,
+   "answer": 1,
    "t": 3
   },
   {
    "q": "Какая служба Linux реализует контроллер домена Active Directory совместимый с клиентами Windows?",
    "options": [
-    "CUPS",
-    "Nginx",
-    "Samba AD DC",
-    "Chrony"
+    "CUPS-сервер",
+    "Nginx-сервер",
+    "Chrony-сервер",
+    "Samba AD DC"
    ],
-   "answer": 2,
+   "answer": 3,
    "t": 4
   },
   {
    "q": "Какая утилита Samba используется для первоначального развёртывания контроллера домена?",
    "options": [
-    "smbpasswd -a",
-    "net usershare",
+    "smbpasswd -a domain-user",
+    "net usershare add domain",
     "samba-tool domain provision",
-    "winbindd -D"
+    "winbindd -D domain-all"
    ],
    "answer": 2,
    "t": 4
@@ -213,9 +213,9 @@
    "q": "Какой протокол FreeIPA использует для проверки подлинности наряду с LDAP?",
    "options": [
     "Kerberos",
-    "Telnet",
-    "TFTP",
-    "SNMPv1"
+    "Telnet-TLS",
+    "TFTP-TLS",
+    "SNMP-TLS"
    ],
    "answer": 0,
    "t": 4
