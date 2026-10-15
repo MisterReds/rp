@@ -113,7 +113,7 @@ function validate(content, opts = {}) {
       let s = 0;
       u.works.forEach((w, i) => {
         if (!nonEmpty(w.name)) E(`${path}: вид работ №${i + 1} без названия`);
-        if (pop && (pop.up_works || []).length && !pop.up_works.includes(w.name)) E(`${path}: вид работ «${w.name}» отсутствует в ПОП (названия видов работ берутся из ПОП без изменений)`);
+        if (pop && !content._practice_source && (pop.up_works || []).length && !pop.up_works.includes(w.name)) E(`${path}: вид работ «${w.name}» отсутствует в ПОП (названия видов работ берутся из ПОП без изменений)`);
         (w.tasks || []).forEach(t => { if (!(t[1] > 0) || t[1] % LESSON) E(`${path}: «${t[0]}» — ${t[1]} ч, должно быть кратно ${LESSON}`); });
         parseCodes(w.codes).pk.forEach(x => { if (!pkList.includes(x)) E(`${path}: ${x} не относится к модулю`); });
         s += sumH(w.tasks);
@@ -132,7 +132,7 @@ function validate(content, opts = {}) {
       if (hrs !== u.hours) E(`${path}: пункты практики дают ${hrs} ч, по плану ${u.hours} ч`);
       u.works.forEach(w => ppItems(w).forEach(([t, h]) => { if (!(h > 0) || h % PP_DAY) E(`${path}: «${String(t).slice(0, 60)}» — ${h} ч, должно быть кратно ${PP_DAY} (дни по ${PP_DAY} ч)`); }));
       u.works.forEach(w => {
-        if (pop && (pop.pp_works || []).length && !pop.pp_works.includes(w.name)) E(`${path}: вид работ «${w.name}» отсутствует в ПОП`);
+        if (pop && !content._practice_source && (pop.pp_works || []).length && !pop.pp_works.includes(w.name)) E(`${path}: вид работ «${w.name}» отсутствует в ПОП`);
         ppText(w).forEach(d => { if (!nonEmpty(d)) E(`${path}: пустой день в «${w.name}»`); if (!u.form && /зач[её]т/i.test(d)) E(`${path}: аттестация по практике не предусмотрена, а в дне «${d}» указан зачёт`); });
         parseCodes(w.codes).pk.forEach(x => { if (!pkList.includes(x)) E(`${path}: ${x} не относится к модулю`); });
       });
