@@ -46,7 +46,7 @@ function validate(content, opts = {}) {
   if (stages.includes('mdk')) {
     const pkSeen = new Set();
     content.mdk.forEach(m => {
-      const sec = pop && pop.sections.find(s => s.mdk === m.code);
+      const sec = pop && pop.sections.find(s => s.mdk === (m.pop_mdk || m.code));
       if (pop && sec && !m.custom) {
         if (m.themes.length !== sec.themes.length) E(`${m.code}: тем ${m.themes.length}, в ПОП ${sec.themes.length} — темы ПОП нельзя добавлять и удалять`);
         sec.themes.forEach((pt, i) => {
