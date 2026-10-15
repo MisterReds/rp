@@ -2094,6 +2094,668 @@
      "answer": 3,
      "t": 7
     }
+   ],
+   "МДК.02.02": [
+    {
+     "q": "Какой конфигурационный файл BIND в Debian содержит параметры работы сервера, такие как forwarders и listen-on?",
+     "options": [
+      "resolv.conf.local",
+      "hosts.allow.conf",
+      "nsswitch.conf.dns",
+      "named.conf.options"
+     ],
+     "answer": 3,
+     "t": 1
+    },
+    {
+     "q": "Какая команда проверяет синтаксис основного конфигурационного файла BIND?",
+     "options": [
+      "named-checkhost",
+      "named-checkconf",
+      "dig-checkconf",
+      "rndc-checkzone"
+     ],
+     "answer": 1,
+     "t": 1
+    },
+    {
+     "q": "Какая запись зоны BIND определяет основной сервер имён и серийный номер зоны?",
+     "options": [
+      "PTR",
+      "SOA",
+      "TXT",
+      "SRV"
+     ],
+     "answer": 1,
+     "t": 1
+    },
+    {
+     "q": "Какая команда перечитывает конфигурацию BIND без остановки службы?",
+     "options": [
+      "rndc flushdb",
+      "rndc status",
+      "rndc halt",
+      "rndc reload"
+     ],
+     "answer": 3,
+     "t": 1
+    },
+    {
+     "q": "Какая утилита выводит подробный ответ DNS-сервера на запрос с указанием секций ANSWER и AUTHORITY?",
+     "options": [
+      "ping",
+      "dig",
+      "arp",
+      "route"
+     ],
+     "answer": 1,
+     "t": 1
+    },
+    {
+     "q": "Какой пакет в Debian и Ubuntu устанавливает DHCP-сервер ISC?",
+     "options": [
+      "isc-dhcp-server",
+      "bind9-dhcp",
+      "dnsmasq-core",
+      "tftpd-dhcp"
+     ],
+     "answer": 0,
+     "t": 2
+    },
+    {
+     "q": "Какой основной файл настройки областей ISC DHCP-сервера используется по умолчанию?",
+     "options": [
+      "dhcpd.conf",
+      "dhclient.conf",
+      "named.conf",
+      "exports.conf"
+     ],
+     "answer": 0,
+     "t": 2
+    },
+    {
+     "q": "Какая директива dhcpd.conf задаёт диапазон выдаваемых адресов?",
+     "options": [
+      "lease",
+      "range",
+      "allow",
+      "option"
+     ],
+     "answer": 1,
+     "t": 2
+    },
+    {
+     "q": "Какая директива dhcpd.conf закрепляет адрес за конкретным клиентом по MAC-адресу?",
+     "options": [
+      "group с range",
+      "pool с deny",
+      "class с match",
+      "host с fixed-address"
+     ],
+     "answer": 3,
+     "t": 2
+    },
+    {
+     "q": "В каком файле ISC DHCP-сервер хранит базу выданных аренд?",
+     "options": [
+      "dhcpd.pools",
+      "dhcpd.hosts",
+      "dhcpd.leases",
+      "dhcpd.state"
+     ],
+     "answer": 2,
+     "t": 2
+    },
+    {
+     "q": "Какой файл на NFS-сервере описывает экспортируемые каталоги и права клиентов?",
+     "options": [
+      "/etc/fstab",
+      "/etc/hosts",
+      "/etc/exports",
+      "/etc/passwd"
+     ],
+     "answer": 2,
+     "t": 3
+    },
+    {
+     "q": "Какая команда применяет изменения файла exports без перезапуска службы NFS?",
+     "options": [
+      "mount -a",
+      "exportfs -ra",
+      "showmount -d",
+      "nfsstat -c"
+     ],
+     "answer": 1,
+     "t": 3
+    },
+    {
+     "q": "Какой параметр экспорта NFS сопоставляет администратора клиента с анонимным пользователем на сервере?",
+     "options": [
+      "no_root_squash",
+      "all_squash",
+      "root_squash",
+      "no_all_squash"
+     ],
+     "answer": 2,
+     "t": 3
+    },
+    {
+     "q": "Какой файл содержит основные настройки сервера Samba?",
+     "options": [
+      "smb.conf",
+      "samba.ini",
+      "smbd.cfg",
+      "netbios.conf"
+     ],
+     "answer": 0,
+     "t": 3
+    },
+    {
+     "q": "Какая утилита проверяет корректность файла smb.conf?",
+     "options": [
+      "smbclient",
+      "nmblookup",
+      "pdbedit",
+      "testparm"
+     ],
+     "answer": 3,
+     "t": 3
+    },
+    {
+     "q": "Какой ключ rsync копирует каталоги с сохранением прав, владельцев и времён изменения?",
+     "options": [
+      "-n",
+      "-q",
+      "-z",
+      "-a"
+     ],
+     "answer": 3,
+     "t": 3
+    },
+    {
+     "q": "Какой порт TCP использует управляющее соединение протокола FTP?",
+     "options": [
+      "21",
+      "22",
+      "25",
+      "53"
+     ],
+     "answer": 0,
+     "t": 3
+    },
+    {
+     "q": "Какая служба Linux реализует контроллер домена Active Directory совместимый с клиентами Windows?",
+     "options": [
+      "CUPS",
+      "Nginx",
+      "Samba AD DC",
+      "Chrony"
+     ],
+     "answer": 2,
+     "t": 4
+    },
+    {
+     "q": "Какая утилита Samba используется для первоначального развёртывания контроллера домена?",
+     "options": [
+      "smbpasswd -a",
+      "net usershare",
+      "samba-tool domain provision",
+      "winbindd -D"
+     ],
+     "answer": 2,
+     "t": 4
+    },
+    {
+     "q": "Какой протокол FreeIPA использует для проверки подлинности наряду с LDAP?",
+     "options": [
+      "Kerberos",
+      "Telnet",
+      "TFTP",
+      "SNMPv1"
+     ],
+     "answer": 0,
+     "t": 4
+    },
+    {
+     "q": "Какая команда FreeIPA устанавливает и настраивает сервер каталога в Linux?",
+     "options": [
+      "ipa-client-join",
+      "ipa-user-add",
+      "ipa-key-cert",
+      "ipa-server-install"
+     ],
+     "answer": 3,
+     "t": 4
+    },
+    {
+     "q": "Как называется утилита Samba для создания учётной записи пользователя домена?",
+     "options": [
+      "useradd --domain",
+      "adduser --smb",
+      "samba-tool user create",
+      "net ads join"
+     ],
+     "answer": 2,
+     "t": 4
+    },
+    {
+     "q": "Какая команда вводит клиентский компьютер на Linux в домен Samba с помощью realmd?",
+     "options": [
+      "samba start",
+      "realm join",
+      "kinit root",
+      "hostnamectl"
+     ],
+     "answer": 1,
+     "t": 4
+    },
+    {
+     "q": "Какой порт TCP по умолчанию использует веб-сервер при работе по протоколу HTTPS?",
+     "options": [
+      "443",
+      "80",
+      "8080",
+      "21"
+     ],
+     "answer": 0,
+     "t": 5
+    },
+    {
+     "q": "Какая директива Nginx направляет запросы к бэкенд-серверу при работе в режиме обратного прокси?",
+     "options": [
+      "root",
+      "index",
+      "listen",
+      "proxy_pass"
+     ],
+     "answer": 3,
+     "t": 5
+    },
+    {
+     "q": "Какой параметр Apache задаёт каталог с содержимым виртуального хоста?",
+     "options": [
+      "ServerAdmin",
+      "ErrorLog",
+      "KeepAlive",
+      "DocumentRoot"
+     ],
+     "answer": 3,
+     "t": 5
+    },
+    {
+     "q": "Какая команда Nginx проверяет синтаксис конфигурации перед перезагрузкой?",
+     "options": [
+      "nginx -s stop",
+      "nginx -t",
+      "nginx -v",
+      "nginx -V"
+     ],
+     "answer": 1,
+     "t": 5
+    },
+    {
+     "q": "Что делает обратный прокси-сервер для внешних клиентов?",
+     "options": [
+      "принимает запросы вместо внутренних серверов",
+      "шифрует диск сервера",
+      "выдаёт адреса по DHCP",
+      "ведёт учёт печати"
+     ],
+     "answer": 0,
+     "t": 5
+    },
+    {
+     "q": "Какой механизм позволяет Nginx распределять запросы между несколькими серверами одного приложения?",
+     "options": [
+      "location",
+      "server_name",
+      "rewrite",
+      "upstream"
+     ],
+     "answer": 3,
+     "t": 5
+    },
+    {
+     "q": "Какая утилита пакета OpenSSL создаёт закрытый ключ и запрос на сертификат?",
+     "options": [
+      "openssl dgst",
+      "openssl req",
+      "openssl enc",
+      "openssl rand"
+     ],
+     "answer": 1,
+     "t": 6
+    },
+    {
+     "q": "Какой формат содержит запрос на подпись сертификата, отправляемый в центр сертификации?",
+     "options": [
+      "CRL",
+      "PEM-ключ",
+      "CSR",
+      "OCSP"
+     ],
+     "answer": 2,
+     "t": 6
+    },
+    {
+     "q": "Какая команда openssl подписывает запрос корневым ключом центра сертификации?",
+     "options": [
+      "openssl ca",
+      "openssl s_client",
+      "openssl speed",
+      "openssl version"
+     ],
+     "answer": 0,
+     "t": 6
+    },
+    {
+     "q": "Какой файл в структуре OpenSSL CA хранит серийные номера выданных сертификатов?",
+     "options": [
+      "index.txt",
+      "openssl.cnf",
+      "serial",
+      "crlnumber"
+     ],
+     "answer": 2,
+     "t": 6
+    },
+    {
+     "q": "Какой пакет в Linux реализует печатный сервер CUPS?",
+     "options": [
+      "cups",
+      "cupsd-ntp",
+      "print-bind",
+      "lpd-smb"
+     ],
+     "answer": 0,
+     "t": 7
+    },
+    {
+     "q": "Какой порт TCP использует веб-интерфейс администрирования CUPS по умолчанию?",
+     "options": [
+      "631",
+      "80",
+      "3306",
+      "5432"
+     ],
+     "answer": 0,
+     "t": 7
+    },
+    {
+     "q": "Какая команда выводит состояние принтеров и очередей печати CUPS?",
+     "options": [
+      "lsblk -f",
+      "lpstat -p",
+      "lsusb -v",
+      "lspci -k"
+     ],
+     "answer": 1,
+     "t": 7
+    },
+    {
+     "q": "Какая команда отправляет файл на печать в Linux?",
+     "options": [
+      "cp",
+      "ls",
+      "mv",
+      "lp"
+     ],
+     "answer": 3,
+     "t": 7
+    },
+    {
+     "q": "Какая служба в современных дистрибутивах Linux реализует клиент и сервер NTP как замену ntpd?",
+     "options": [
+      "cupsd",
+      "named",
+      "chrony",
+      "vsftpd"
+     ],
+     "answer": 2,
+     "t": 8
+    },
+    {
+     "q": "Какой порт UDP использует протокол NTP?",
+     "options": [
+      "53",
+      "67",
+      "123",
+      "161"
+     ],
+     "answer": 2,
+     "t": 8
+    },
+    {
+     "q": "Какая команда chrony показывает источники времени и смещение часов?",
+     "options": [
+      "chronyd stop",
+      "chronyc sources",
+      "chronyc dump",
+      "chronyc keygen"
+     ],
+     "answer": 1,
+     "t": 8
+    },
+    {
+     "q": "Какой параметр chrony.conf указывает внешний сервер синхронизации времени?",
+     "options": [
+      "server",
+      "bindcmd",
+      "logdir",
+      "driftfile"
+     ],
+     "answer": 0,
+     "t": 8
+    },
+    {
+     "q": "Какой уровень stratum имеет эталонный источник времени, подключённый к атомным часам или GPS?",
+     "options": [
+      "5",
+      "10",
+      "15",
+      "0"
+     ],
+     "answer": 3,
+     "t": 8
+    },
+    {
+     "q": "Какая директива chrony.conf разрешает клиентам из подсети получать время от сервера?",
+     "options": [
+      "deny",
+      "cmdallow",
+      "allow",
+      "local"
+     ],
+     "answer": 2,
+     "t": 8
+    },
+    {
+     "q": "Какая запись зоны BIND задаёт псевдоним для существующего имени?",
+     "options": [
+      "NS",
+      "CNAME",
+      "SOA",
+      "MX"
+     ],
+     "answer": 1,
+     "t": 1
+    },
+    {
+     "q": "Какой параметр named.conf разрешает передачу зоны только указанным вторичным серверам?",
+     "options": [
+      "allow-query",
+      "also-notify",
+      "forwarders",
+      "allow-transfer"
+     ],
+     "answer": 3,
+     "t": 1
+    },
+    {
+     "q": "Какой тип зоны BIND используется на вторичном сервере имён?",
+     "options": [
+      "slave (secondary)",
+      "master (primary)",
+      "forward",
+      "hint"
+     ],
+     "answer": 0,
+     "t": 1
+    },
+    {
+     "q": "Какая директива dhcpd.conf задаёт адрес шлюза для клиентов?",
+     "options": [
+      "option domain-name",
+      "default-lease-time",
+      "option routers",
+      "max-lease-time"
+     ],
+     "answer": 2,
+     "t": 2
+    },
+    {
+     "q": "Какая директива dhcpd.conf задаёт адреса DNS-серверов для клиентов?",
+     "options": [
+      "option domain-name-servers",
+      "option subnet-mask",
+      "option broadcast-address",
+      "option routers"
+     ],
+     "answer": 0,
+     "t": 2
+    },
+    {
+     "q": "Какая команда проверяет синтаксис конфигурации ISC DHCP-сервера без запуска?",
+     "options": [
+      "dhcpd -t",
+      "dhcpd -f",
+      "dhcpd -d",
+      "dhcpd -q"
+     ],
+     "answer": 0,
+     "t": 2
+    },
+    {
+     "q": "Какой параметр в smb.conf определяет рабочую группу или домен, к которому относится сервер?",
+     "options": [
+      "hosts allow",
+      "workgroup",
+      "log level",
+      "guest ok"
+     ],
+     "answer": 1,
+     "t": 3
+    },
+    {
+     "q": "Какая команда подключает сетевой каталог NFS к клиенту Linux?",
+     "options": [
+      "mount -t ntfs",
+      "mount -t nfs",
+      "mount -t cifsd",
+      "mount -t swap"
+     ],
+     "answer": 1,
+     "t": 3
+    },
+    {
+     "q": "Какой параметр smb.conf разрешает запись в общий ресурс?",
+     "options": [
+      "browseable = no",
+      "read only = yes",
+      "writable = yes",
+      "public = no"
+     ],
+     "answer": 2,
+     "t": 3
+    },
+    {
+     "q": "Какое расширение службы FTP шифрует канал передачи данных протоколом TLS?",
+     "options": [
+      "SFTP-over-NFS",
+      "TFTP",
+      "FTPD",
+      "FTPS"
+     ],
+     "answer": 3,
+     "t": 3
+    },
+    {
+     "q": "Какой параметр vsftpd.conf запрещает анонимный вход на FTP-сервер?",
+     "options": [
+      "local_enable=NO",
+      "anonymous_enable=NO",
+      "write_enable=NO",
+      "chroot_local_user=NO"
+     ],
+     "answer": 1,
+     "t": 3
+    },
+    {
+     "q": "Какая роль DNS необходима для работы Samba AD DC и клиентов домена?",
+     "options": [
+      "MX-записи почты",
+      "TXT-записи SPF",
+      "SRV-записи служб домена",
+      "PTR-записи подсетей"
+     ],
+     "answer": 2,
+     "t": 4
+    },
+    {
+     "q": "Какой протокол Kerberos отвечает за выдачу билета на получение билетов (TGT)?",
+     "options": [
+      "TGS (служба билетов)",
+      "NTP (служба времени)",
+      "DHCP (служба адресов)",
+      "AS (служба аутентификации)"
+     ],
+     "answer": 3,
+     "t": 4
+    },
+    {
+     "q": "Какой каталог Nginx в Debian содержит ссылки на включённые виртуальные хосты?",
+     "options": [
+      "sites-enabled",
+      "sites-online",
+      "hosts-active",
+      "conf-ready"
+     ],
+     "answer": 0,
+     "t": 5
+    },
+    {
+     "q": "Какая команда Let’s Encrypt-клиента certbot выпускает сертификат для домена и настраивает Nginx?",
+     "options": [
+      "certbot --dhcp",
+      "certbot --nginx",
+      "certbot --nfs",
+      "certbot --ntp"
+     ],
+     "answer": 1,
+     "t": 6
+    },
+    {
+     "q": "Какая директива cupsd.conf разрешает доступ к веб-интерфейсу CUPS из локальной сети?",
+     "options": [
+      "ListenOnly",
+      "MaxJobs",
+      "Allow из блока Location",
+      "LogLevel"
+     ],
+     "answer": 2,
+     "t": 7
+    },
+    {
+     "q": "Какая команда ставит принтер в очередь CUPS из командной строки?",
+     "options": [
+      "lpq -a",
+      "lprm -",
+      "lpmove",
+      "lpadmin -p"
+     ],
+     "answer": 3,
+     "t": 7
+    }
    ]
   },
   "exams": {
@@ -3084,6 +3746,678 @@
      "Создать правило брандмауэра, разрешающее входящие подключения по TCP-порту 8082 только с узла 192.168.30.77. Проверить доступность порта командой Test-NetConnection.",
      "Настроить вывод журнала «Система» за последние 72 часов: отфильтровать события уровня «Ошибка» и сохранить результат в файл err3.evtx."
     ]
+   },
+   "tests:МДК.02.02:1": {
+    "tests": [
+     {
+      "q": "Какой конфигурационный файл BIND в Debian содержит параметры работы сервера, такие как forwarders и listen-on?",
+      "options": [
+       "resolv.conf.local",
+       "hosts.allow.conf",
+       "nsswitch.conf.dns",
+       "named.conf.options"
+      ],
+      "answer": 3,
+      "t": 1
+     },
+     {
+      "q": "Какая команда проверяет синтаксис основного конфигурационного файла BIND?",
+      "options": [
+       "named-checkhost",
+       "named-checkconf",
+       "dig-checkconf",
+       "rndc-checkzone"
+      ],
+      "answer": 1,
+      "t": 1
+     },
+     {
+      "q": "Какая запись зоны BIND определяет основной сервер имён и серийный номер зоны?",
+      "options": [
+       "PTR",
+       "SOA",
+       "TXT",
+       "SRV"
+      ],
+      "answer": 1,
+      "t": 1
+     },
+     {
+      "q": "Какая команда перечитывает конфигурацию BIND без остановки службы?",
+      "options": [
+       "rndc flushdb",
+       "rndc status",
+       "rndc halt",
+       "rndc reload"
+      ],
+      "answer": 3,
+      "t": 1
+     },
+     {
+      "q": "Какая утилита выводит подробный ответ DNS-сервера на запрос с указанием секций ANSWER и AUTHORITY?",
+      "options": [
+       "ping",
+       "dig",
+       "arp",
+       "route"
+      ],
+      "answer": 1,
+      "t": 1
+     },
+     {
+      "q": "Какой пакет в Debian и Ubuntu устанавливает DHCP-сервер ISC?",
+      "options": [
+       "isc-dhcp-server",
+       "bind9-dhcp",
+       "dnsmasq-core",
+       "tftpd-dhcp"
+      ],
+      "answer": 0,
+      "t": 2
+     },
+     {
+      "q": "Какой основной файл настройки областей ISC DHCP-сервера используется по умолчанию?",
+      "options": [
+       "dhcpd.conf",
+       "dhclient.conf",
+       "named.conf",
+       "exports.conf"
+      ],
+      "answer": 0,
+      "t": 2
+     },
+     {
+      "q": "Какая директива dhcpd.conf задаёт диапазон выдаваемых адресов?",
+      "options": [
+       "lease",
+       "range",
+       "allow",
+       "option"
+      ],
+      "answer": 1,
+      "t": 2
+     },
+     {
+      "q": "Какая директива dhcpd.conf закрепляет адрес за конкретным клиентом по MAC-адресу?",
+      "options": [
+       "group с range",
+       "pool с deny",
+       "class с match",
+       "host с fixed-address"
+      ],
+      "answer": 3,
+      "t": 2
+     },
+     {
+      "q": "В каком файле ISC DHCP-сервер хранит базу выданных аренд?",
+      "options": [
+       "dhcpd.pools",
+       "dhcpd.hosts",
+       "dhcpd.leases",
+       "dhcpd.state"
+      ],
+      "answer": 2,
+      "t": 2
+     },
+     {
+      "q": "Какой файл на NFS-сервере описывает экспортируемые каталоги и права клиентов?",
+      "options": [
+       "/etc/fstab",
+       "/etc/hosts",
+       "/etc/exports",
+       "/etc/passwd"
+      ],
+      "answer": 2,
+      "t": 3
+     },
+     {
+      "q": "Какая команда применяет изменения файла exports без перезапуска службы NFS?",
+      "options": [
+       "mount -a",
+       "exportfs -ra",
+       "showmount -d",
+       "nfsstat -c"
+      ],
+      "answer": 1,
+      "t": 3
+     },
+     {
+      "q": "Какой параметр экспорта NFS сопоставляет администратора клиента с анонимным пользователем на сервере?",
+      "options": [
+       "no_root_squash",
+       "all_squash",
+       "root_squash",
+       "no_all_squash"
+      ],
+      "answer": 2,
+      "t": 3
+     },
+     {
+      "q": "Какой файл содержит основные настройки сервера Samba?",
+      "options": [
+       "smb.conf",
+       "samba.ini",
+       "smbd.cfg",
+       "netbios.conf"
+      ],
+      "answer": 0,
+      "t": 3
+     },
+     {
+      "q": "Какая утилита проверяет корректность файла smb.conf?",
+      "options": [
+       "smbclient",
+       "nmblookup",
+       "pdbedit",
+       "testparm"
+      ],
+      "answer": 3,
+      "t": 3
+     },
+     {
+      "q": "Какой ключ rsync копирует каталоги с сохранением прав, владельцев и времён изменения?",
+      "options": [
+       "-n",
+       "-q",
+       "-z",
+       "-a"
+      ],
+      "answer": 3,
+      "t": 3
+     },
+     {
+      "q": "Какой порт TCP использует управляющее соединение протокола FTP?",
+      "options": [
+       "21",
+       "22",
+       "25",
+       "53"
+      ],
+      "answer": 0,
+      "t": 3
+     },
+     {
+      "q": "Какая служба Linux реализует контроллер домена Active Directory совместимый с клиентами Windows?",
+      "options": [
+       "CUPS",
+       "Nginx",
+       "Samba AD DC",
+       "Chrony"
+      ],
+      "answer": 2,
+      "t": 4
+     },
+     {
+      "q": "Какая утилита Samba используется для первоначального развёртывания контроллера домена?",
+      "options": [
+       "smbpasswd -a",
+       "net usershare",
+       "samba-tool domain provision",
+       "winbindd -D"
+      ],
+      "answer": 2,
+      "t": 4
+     },
+     {
+      "q": "Какой протокол FreeIPA использует для проверки подлинности наряду с LDAP?",
+      "options": [
+       "Kerberos",
+       "Telnet",
+       "TFTP",
+       "SNMPv1"
+      ],
+      "answer": 0,
+      "t": 4
+     }
+    ]
+   },
+   "tests:МДК.02.02:2": {
+    "tests": [
+     {
+      "q": "Какая команда FreeIPA устанавливает и настраивает сервер каталога в Linux?",
+      "options": [
+       "ipa-client-join",
+       "ipa-user-add",
+       "ipa-key-cert",
+       "ipa-server-install"
+      ],
+      "answer": 3,
+      "t": 4
+     },
+     {
+      "q": "Как называется утилита Samba для создания учётной записи пользователя домена?",
+      "options": [
+       "useradd --domain",
+       "adduser --smb",
+       "samba-tool user create",
+       "net ads join"
+      ],
+      "answer": 2,
+      "t": 4
+     },
+     {
+      "q": "Какая команда вводит клиентский компьютер на Linux в домен Samba с помощью realmd?",
+      "options": [
+       "samba start",
+       "realm join",
+       "kinit root",
+       "hostnamectl"
+      ],
+      "answer": 1,
+      "t": 4
+     },
+     {
+      "q": "Какой порт TCP по умолчанию использует веб-сервер при работе по протоколу HTTPS?",
+      "options": [
+       "443",
+       "80",
+       "8080",
+       "21"
+      ],
+      "answer": 0,
+      "t": 5
+     },
+     {
+      "q": "Какая директива Nginx направляет запросы к бэкенд-серверу при работе в режиме обратного прокси?",
+      "options": [
+       "root",
+       "index",
+       "listen",
+       "proxy_pass"
+      ],
+      "answer": 3,
+      "t": 5
+     },
+     {
+      "q": "Какой параметр Apache задаёт каталог с содержимым виртуального хоста?",
+      "options": [
+       "ServerAdmin",
+       "ErrorLog",
+       "KeepAlive",
+       "DocumentRoot"
+      ],
+      "answer": 3,
+      "t": 5
+     },
+     {
+      "q": "Какая команда Nginx проверяет синтаксис конфигурации перед перезагрузкой?",
+      "options": [
+       "nginx -s stop",
+       "nginx -t",
+       "nginx -v",
+       "nginx -V"
+      ],
+      "answer": 1,
+      "t": 5
+     },
+     {
+      "q": "Что делает обратный прокси-сервер для внешних клиентов?",
+      "options": [
+       "принимает запросы вместо внутренних серверов",
+       "шифрует диск сервера",
+       "выдаёт адреса по DHCP",
+       "ведёт учёт печати"
+      ],
+      "answer": 0,
+      "t": 5
+     },
+     {
+      "q": "Какой механизм позволяет Nginx распределять запросы между несколькими серверами одного приложения?",
+      "options": [
+       "location",
+       "server_name",
+       "rewrite",
+       "upstream"
+      ],
+      "answer": 3,
+      "t": 5
+     },
+     {
+      "q": "Какая утилита пакета OpenSSL создаёт закрытый ключ и запрос на сертификат?",
+      "options": [
+       "openssl dgst",
+       "openssl req",
+       "openssl enc",
+       "openssl rand"
+      ],
+      "answer": 1,
+      "t": 6
+     },
+     {
+      "q": "Какой формат содержит запрос на подпись сертификата, отправляемый в центр сертификации?",
+      "options": [
+       "CRL",
+       "PEM-ключ",
+       "CSR",
+       "OCSP"
+      ],
+      "answer": 2,
+      "t": 6
+     },
+     {
+      "q": "Какая команда openssl подписывает запрос корневым ключом центра сертификации?",
+      "options": [
+       "openssl ca",
+       "openssl s_client",
+       "openssl speed",
+       "openssl version"
+      ],
+      "answer": 0,
+      "t": 6
+     },
+     {
+      "q": "Какой файл в структуре OpenSSL CA хранит серийные номера выданных сертификатов?",
+      "options": [
+       "index.txt",
+       "openssl.cnf",
+       "serial",
+       "crlnumber"
+      ],
+      "answer": 2,
+      "t": 6
+     },
+     {
+      "q": "Какой пакет в Linux реализует печатный сервер CUPS?",
+      "options": [
+       "cups",
+       "cupsd-ntp",
+       "print-bind",
+       "lpd-smb"
+      ],
+      "answer": 0,
+      "t": 7
+     },
+     {
+      "q": "Какой порт TCP использует веб-интерфейс администрирования CUPS по умолчанию?",
+      "options": [
+       "631",
+       "80",
+       "3306",
+       "5432"
+      ],
+      "answer": 0,
+      "t": 7
+     },
+     {
+      "q": "Какая команда выводит состояние принтеров и очередей печати CUPS?",
+      "options": [
+       "lsblk -f",
+       "lpstat -p",
+       "lsusb -v",
+       "lspci -k"
+      ],
+      "answer": 1,
+      "t": 7
+     },
+     {
+      "q": "Какая команда отправляет файл на печать в Linux?",
+      "options": [
+       "cp",
+       "ls",
+       "mv",
+       "lp"
+      ],
+      "answer": 3,
+      "t": 7
+     },
+     {
+      "q": "Какая служба в современных дистрибутивах Linux реализует клиент и сервер NTP как замену ntpd?",
+      "options": [
+       "cupsd",
+       "named",
+       "chrony",
+       "vsftpd"
+      ],
+      "answer": 2,
+      "t": 8
+     },
+     {
+      "q": "Какой порт UDP использует протокол NTP?",
+      "options": [
+       "53",
+       "67",
+       "123",
+       "161"
+      ],
+      "answer": 2,
+      "t": 8
+     },
+     {
+      "q": "Какая команда chrony показывает источники времени и смещение часов?",
+      "options": [
+       "chronyd stop",
+       "chronyc sources",
+       "chronyc dump",
+       "chronyc keygen"
+      ],
+      "answer": 1,
+      "t": 8
+     }
+    ]
+   },
+   "tests:МДК.02.02:3": {
+    "tests": [
+     {
+      "q": "Какой параметр chrony.conf указывает внешний сервер синхронизации времени?",
+      "options": [
+       "server",
+       "bindcmd",
+       "logdir",
+       "driftfile"
+      ],
+      "answer": 0,
+      "t": 8
+     },
+     {
+      "q": "Какой уровень stratum имеет эталонный источник времени, подключённый к атомным часам или GPS?",
+      "options": [
+       "5",
+       "10",
+       "15",
+       "0"
+      ],
+      "answer": 3,
+      "t": 8
+     },
+     {
+      "q": "Какая директива chrony.conf разрешает клиентам из подсети получать время от сервера?",
+      "options": [
+       "deny",
+       "cmdallow",
+       "allow",
+       "local"
+      ],
+      "answer": 2,
+      "t": 8
+     },
+     {
+      "q": "Какая запись зоны BIND задаёт псевдоним для существующего имени?",
+      "options": [
+       "NS",
+       "CNAME",
+       "SOA",
+       "MX"
+      ],
+      "answer": 1,
+      "t": 1
+     },
+     {
+      "q": "Какой параметр named.conf разрешает передачу зоны только указанным вторичным серверам?",
+      "options": [
+       "allow-query",
+       "also-notify",
+       "forwarders",
+       "allow-transfer"
+      ],
+      "answer": 3,
+      "t": 1
+     },
+     {
+      "q": "Какой тип зоны BIND используется на вторичном сервере имён?",
+      "options": [
+       "slave (secondary)",
+       "master (primary)",
+       "forward",
+       "hint"
+      ],
+      "answer": 0,
+      "t": 1
+     },
+     {
+      "q": "Какая директива dhcpd.conf задаёт адрес шлюза для клиентов?",
+      "options": [
+       "option domain-name",
+       "default-lease-time",
+       "option routers",
+       "max-lease-time"
+      ],
+      "answer": 2,
+      "t": 2
+     },
+     {
+      "q": "Какая директива dhcpd.conf задаёт адреса DNS-серверов для клиентов?",
+      "options": [
+       "option domain-name-servers",
+       "option subnet-mask",
+       "option broadcast-address",
+       "option routers"
+      ],
+      "answer": 0,
+      "t": 2
+     },
+     {
+      "q": "Какая команда проверяет синтаксис конфигурации ISC DHCP-сервера без запуска?",
+      "options": [
+       "dhcpd -t",
+       "dhcpd -f",
+       "dhcpd -d",
+       "dhcpd -q"
+      ],
+      "answer": 0,
+      "t": 2
+     },
+     {
+      "q": "Какой параметр в smb.conf определяет рабочую группу или домен, к которому относится сервер?",
+      "options": [
+       "hosts allow",
+       "workgroup",
+       "log level",
+       "guest ok"
+      ],
+      "answer": 1,
+      "t": 3
+     },
+     {
+      "q": "Какая команда подключает сетевой каталог NFS к клиенту Linux?",
+      "options": [
+       "mount -t ntfs",
+       "mount -t nfs",
+       "mount -t cifsd",
+       "mount -t swap"
+      ],
+      "answer": 1,
+      "t": 3
+     },
+     {
+      "q": "Какой параметр smb.conf разрешает запись в общий ресурс?",
+      "options": [
+       "browseable = no",
+       "read only = yes",
+       "writable = yes",
+       "public = no"
+      ],
+      "answer": 2,
+      "t": 3
+     },
+     {
+      "q": "Какое расширение службы FTP шифрует канал передачи данных протоколом TLS?",
+      "options": [
+       "SFTP-over-NFS",
+       "TFTP",
+       "FTPD",
+       "FTPS"
+      ],
+      "answer": 3,
+      "t": 3
+     },
+     {
+      "q": "Какой параметр vsftpd.conf запрещает анонимный вход на FTP-сервер?",
+      "options": [
+       "local_enable=NO",
+       "anonymous_enable=NO",
+       "write_enable=NO",
+       "chroot_local_user=NO"
+      ],
+      "answer": 1,
+      "t": 3
+     },
+     {
+      "q": "Какая роль DNS необходима для работы Samba AD DC и клиентов домена?",
+      "options": [
+       "MX-записи почты",
+       "TXT-записи SPF",
+       "SRV-записи служб домена",
+       "PTR-записи подсетей"
+      ],
+      "answer": 2,
+      "t": 4
+     },
+     {
+      "q": "Какой протокол Kerberos отвечает за выдачу билета на получение билетов (TGT)?",
+      "options": [
+       "TGS (служба билетов)",
+       "NTP (служба времени)",
+       "DHCP (служба адресов)",
+       "AS (служба аутентификации)"
+      ],
+      "answer": 3,
+      "t": 4
+     },
+     {
+      "q": "Какой каталог Nginx в Debian содержит ссылки на включённые виртуальные хосты?",
+      "options": [
+       "sites-enabled",
+       "sites-online",
+       "hosts-active",
+       "conf-ready"
+      ],
+      "answer": 0,
+      "t": 5
+     },
+     {
+      "q": "Какая команда Let’s Encrypt-клиента certbot выпускает сертификат для домена и настраивает Nginx?",
+      "options": [
+       "certbot --dhcp",
+       "certbot --nginx",
+       "certbot --nfs",
+       "certbot --ntp"
+      ],
+      "answer": 1,
+      "t": 6
+     },
+     {
+      "q": "Какая директива cupsd.conf разрешает доступ к веб-интерфейсу CUPS из локальной сети?",
+      "options": [
+       "ListenOnly",
+       "MaxJobs",
+       "Allow из блока Location",
+       "LogLevel"
+      ],
+      "answer": 2,
+      "t": 7
+     },
+     {
+      "q": "Какая команда ставит принтер в очередь CUPS из командной строки?",
+      "options": [
+       "lpq -a",
+       "lprm -",
+       "lpmove",
+       "lpadmin -p"
+      ],
+      "answer": 3,
+      "t": 7
+     }
+    ]
    }
   }
  },
@@ -3103,7 +4437,10 @@
   "exam:МДК.02.01:1",
   "exam:МДК.02.01:2",
   "exam:МДК.02.01:3",
-  "cw:МДК.02.01"
+  "cw:МДК.02.01",
+  "tests:МДК.02.02:1",
+  "tests:МДК.02.02:2",
+  "tests:МДК.02.02:3"
  ],
  "_practice_source": "Содержание УП и ПП перенесено из рабочих программ практик ГБПОУ «СПЭТ» (УП.02: ОА-2501 (36 ч), ОА-2401 (72 ч); ПП.02: ОА-2501 и ОА-2401, по 108 ч). Виды работ — по ПОП, пункты распределены по видам работ; часы — по учебному плану ОА-2401."
 }

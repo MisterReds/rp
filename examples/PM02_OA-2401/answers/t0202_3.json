@@ -1,0 +1,224 @@
+{
+ "tests": [
+  {
+   "q": "Какой параметр chrony.conf указывает внешний сервер синхронизации времени?",
+   "options": [
+    "server",
+    "bindcmd",
+    "logdir",
+    "driftfile"
+   ],
+   "answer": 0,
+   "t": 8
+  },
+  {
+   "q": "Какой уровень stratum имеет эталонный источник времени, подключённый к атомным часам или GPS?",
+   "options": [
+    "5",
+    "10",
+    "15",
+    "0"
+   ],
+   "answer": 3,
+   "t": 8
+  },
+  {
+   "q": "Какая директива chrony.conf разрешает клиентам из подсети получать время от сервера?",
+   "options": [
+    "deny",
+    "cmdallow",
+    "allow",
+    "local"
+   ],
+   "answer": 2,
+   "t": 8
+  },
+  {
+   "q": "Какая запись зоны BIND задаёт псевдоним для существующего имени?",
+   "options": [
+    "NS",
+    "CNAME",
+    "SOA",
+    "MX"
+   ],
+   "answer": 1,
+   "t": 1
+  },
+  {
+   "q": "Какой параметр named.conf разрешает передачу зоны только указанным вторичным серверам?",
+   "options": [
+    "allow-query",
+    "also-notify",
+    "forwarders",
+    "allow-transfer"
+   ],
+   "answer": 3,
+   "t": 1
+  },
+  {
+   "q": "Какой тип зоны BIND используется на вторичном сервере имён?",
+   "options": [
+    "slave (secondary)",
+    "master (primary)",
+    "forward",
+    "hint"
+   ],
+   "answer": 0,
+   "t": 1
+  },
+  {
+   "q": "Какая директива dhcpd.conf задаёт адрес шлюза для клиентов?",
+   "options": [
+    "option domain-name",
+    "default-lease-time",
+    "option routers",
+    "max-lease-time"
+   ],
+   "answer": 2,
+   "t": 2
+  },
+  {
+   "q": "Какая директива dhcpd.conf задаёт адреса DNS-серверов для клиентов?",
+   "options": [
+    "option domain-name-servers",
+    "option subnet-mask",
+    "option broadcast-address",
+    "option routers"
+   ],
+   "answer": 0,
+   "t": 2
+  },
+  {
+   "q": "Какая команда проверяет синтаксис конфигурации ISC DHCP-сервера без запуска?",
+   "options": [
+    "dhcpd -t",
+    "dhcpd -f",
+    "dhcpd -d",
+    "dhcpd -q"
+   ],
+   "answer": 0,
+   "t": 2
+  },
+  {
+   "q": "Какой параметр в smb.conf определяет рабочую группу или домен, к которому относится сервер?",
+   "options": [
+    "hosts allow",
+    "workgroup",
+    "log level",
+    "guest ok"
+   ],
+   "answer": 1,
+   "t": 3
+  },
+  {
+   "q": "Какая команда подключает сетевой каталог NFS к клиенту Linux?",
+   "options": [
+    "mount -t ntfs",
+    "mount -t nfs",
+    "mount -t cifsd",
+    "mount -t swap"
+   ],
+   "answer": 1,
+   "t": 3
+  },
+  {
+   "q": "Какой параметр smb.conf разрешает запись в общий ресурс?",
+   "options": [
+    "browseable = no",
+    "read only = yes",
+    "writable = yes",
+    "public = no"
+   ],
+   "answer": 2,
+   "t": 3
+  },
+  {
+   "q": "Какое расширение службы FTP шифрует канал передачи данных протоколом TLS?",
+   "options": [
+    "SFTP-over-NFS",
+    "TFTP",
+    "FTPD",
+    "FTPS"
+   ],
+   "answer": 3,
+   "t": 3
+  },
+  {
+   "q": "Какой параметр vsftpd.conf запрещает анонимный вход на FTP-сервер?",
+   "options": [
+    "local_enable=NO",
+    "anonymous_enable=NO",
+    "write_enable=NO",
+    "chroot_local_user=NO"
+   ],
+   "answer": 1,
+   "t": 3
+  },
+  {
+   "q": "Какая роль DNS необходима для работы Samba AD DC и клиентов домена?",
+   "options": [
+    "MX-записи почты",
+    "TXT-записи SPF",
+    "SRV-записи служб домена",
+    "PTR-записи подсетей"
+   ],
+   "answer": 2,
+   "t": 4
+  },
+  {
+   "q": "Какой протокол Kerberos отвечает за выдачу билета на получение билетов (TGT)?",
+   "options": [
+    "TGS (служба билетов)",
+    "NTP (служба времени)",
+    "DHCP (служба адресов)",
+    "AS (служба аутентификации)"
+   ],
+   "answer": 3,
+   "t": 4
+  },
+  {
+   "q": "Какой каталог Nginx в Debian содержит ссылки на включённые виртуальные хосты?",
+   "options": [
+    "sites-enabled",
+    "sites-online",
+    "hosts-active",
+    "conf-ready"
+   ],
+   "answer": 0,
+   "t": 5
+  },
+  {
+   "q": "Какая команда Let’s Encrypt-клиента certbot выпускает сертификат для домена и настраивает Nginx?",
+   "options": [
+    "certbot --dhcp",
+    "certbot --nginx",
+    "certbot --nfs",
+    "certbot --ntp"
+   ],
+   "answer": 1,
+   "t": 6
+  },
+  {
+   "q": "Какая директива cupsd.conf разрешает доступ к веб-интерфейсу CUPS из локальной сети?",
+   "options": [
+    "ListenOnly",
+    "MaxJobs",
+    "Allow из блока Location",
+    "LogLevel"
+   ],
+   "answer": 2,
+   "t": 7
+  },
+  {
+   "q": "Какая команда ставит принтер в очередь CUPS из командной строки?",
+   "options": [
+    "lpq -a",
+    "lprm -",
+    "lpmove",
+    "lpadmin -p"
+   ],
+   "answer": 3,
+   "t": 7
+  }
+ ]
+}

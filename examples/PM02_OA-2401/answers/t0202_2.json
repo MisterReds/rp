@@ -1,0 +1,224 @@
+{
+ "tests": [
+  {
+   "q": "Какая команда FreeIPA устанавливает и настраивает сервер каталога в Linux?",
+   "options": [
+    "ipa-client-join",
+    "ipa-user-add",
+    "ipa-key-cert",
+    "ipa-server-install"
+   ],
+   "answer": 3,
+   "t": 4
+  },
+  {
+   "q": "Как называется утилита Samba для создания учётной записи пользователя домена?",
+   "options": [
+    "useradd --domain",
+    "adduser --smb",
+    "samba-tool user create",
+    "net ads join"
+   ],
+   "answer": 2,
+   "t": 4
+  },
+  {
+   "q": "Какая команда вводит клиентский компьютер на Linux в домен Samba с помощью realmd?",
+   "options": [
+    "samba start",
+    "realm join",
+    "kinit root",
+    "hostnamectl"
+   ],
+   "answer": 1,
+   "t": 4
+  },
+  {
+   "q": "Какой порт TCP по умолчанию использует веб-сервер при работе по протоколу HTTPS?",
+   "options": [
+    "443",
+    "80",
+    "8080",
+    "21"
+   ],
+   "answer": 0,
+   "t": 5
+  },
+  {
+   "q": "Какая директива Nginx направляет запросы к бэкенд-серверу при работе в режиме обратного прокси?",
+   "options": [
+    "root",
+    "index",
+    "listen",
+    "proxy_pass"
+   ],
+   "answer": 3,
+   "t": 5
+  },
+  {
+   "q": "Какой параметр Apache задаёт каталог с содержимым виртуального хоста?",
+   "options": [
+    "ServerAdmin",
+    "ErrorLog",
+    "KeepAlive",
+    "DocumentRoot"
+   ],
+   "answer": 3,
+   "t": 5
+  },
+  {
+   "q": "Какая команда Nginx проверяет синтаксис конфигурации перед перезагрузкой?",
+   "options": [
+    "nginx -s stop",
+    "nginx -t",
+    "nginx -v",
+    "nginx -V"
+   ],
+   "answer": 1,
+   "t": 5
+  },
+  {
+   "q": "Что делает обратный прокси-сервер для внешних клиентов?",
+   "options": [
+    "принимает запросы вместо внутренних серверов",
+    "шифрует диск сервера",
+    "выдаёт адреса по DHCP",
+    "ведёт учёт печати"
+   ],
+   "answer": 0,
+   "t": 5
+  },
+  {
+   "q": "Какой механизм позволяет Nginx распределять запросы между несколькими серверами одного приложения?",
+   "options": [
+    "location",
+    "server_name",
+    "rewrite",
+    "upstream"
+   ],
+   "answer": 3,
+   "t": 5
+  },
+  {
+   "q": "Какая утилита пакета OpenSSL создаёт закрытый ключ и запрос на сертификат?",
+   "options": [
+    "openssl dgst",
+    "openssl req",
+    "openssl enc",
+    "openssl rand"
+   ],
+   "answer": 1,
+   "t": 6
+  },
+  {
+   "q": "Какой формат содержит запрос на подпись сертификата, отправляемый в центр сертификации?",
+   "options": [
+    "CRL",
+    "PEM-ключ",
+    "CSR",
+    "OCSP"
+   ],
+   "answer": 2,
+   "t": 6
+  },
+  {
+   "q": "Какая команда openssl подписывает запрос корневым ключом центра сертификации?",
+   "options": [
+    "openssl ca",
+    "openssl s_client",
+    "openssl speed",
+    "openssl version"
+   ],
+   "answer": 0,
+   "t": 6
+  },
+  {
+   "q": "Какой файл в структуре OpenSSL CA хранит серийные номера выданных сертификатов?",
+   "options": [
+    "index.txt",
+    "openssl.cnf",
+    "serial",
+    "crlnumber"
+   ],
+   "answer": 2,
+   "t": 6
+  },
+  {
+   "q": "Какой пакет в Linux реализует печатный сервер CUPS?",
+   "options": [
+    "cups",
+    "cupsd-ntp",
+    "print-bind",
+    "lpd-smb"
+   ],
+   "answer": 0,
+   "t": 7
+  },
+  {
+   "q": "Какой порт TCP использует веб-интерфейс администрирования CUPS по умолчанию?",
+   "options": [
+    "631",
+    "80",
+    "3306",
+    "5432"
+   ],
+   "answer": 0,
+   "t": 7
+  },
+  {
+   "q": "Какая команда выводит состояние принтеров и очередей печати CUPS?",
+   "options": [
+    "lsblk -f",
+    "lpstat -p",
+    "lsusb -v",
+    "lspci -k"
+   ],
+   "answer": 1,
+   "t": 7
+  },
+  {
+   "q": "Какая команда отправляет файл на печать в Linux?",
+   "options": [
+    "cp",
+    "ls",
+    "mv",
+    "lp"
+   ],
+   "answer": 3,
+   "t": 7
+  },
+  {
+   "q": "Какая служба в современных дистрибутивах Linux реализует клиент и сервер NTP как замену ntpd?",
+   "options": [
+    "cupsd",
+    "named",
+    "chrony",
+    "vsftpd"
+   ],
+   "answer": 2,
+   "t": 8
+  },
+  {
+   "q": "Какой порт UDP использует протокол NTP?",
+   "options": [
+    "53",
+    "67",
+    "123",
+    "161"
+   ],
+   "answer": 2,
+   "t": 8
+  },
+  {
+   "q": "Какая команда chrony показывает источники времени и смещение часов?",
+   "options": [
+    "chronyd stop",
+    "chronyc sources",
+    "chronyc dump",
+    "chronyc keygen"
+   ],
+   "answer": 1,
+   "t": 8
+  }
+ ]
+}
