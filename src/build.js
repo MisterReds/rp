@@ -53,6 +53,7 @@ function loadProject(projectFile) {
     dir, project: pj,
     fgos: JSON.parse(fs.readFileSync(rd(pj.fgos), 'utf8')),
     vosp: JSON.parse(fs.readFileSync(rd(pj.vospitanie), 'utf8')),
+    vospPrev: pj.vospitanie_prev ? JSON.parse(fs.readFileSync(rd(pj.vospitanie_prev), 'utf8')) : null,
     pop: pj.pop ? JSON.parse(fs.readFileSync(rd(pj.pop), 'utf8')) : null,
     plan: loadPlan(rd(pj.plan)),
     contentPath: rd(pj.content || 'content.json'),
@@ -63,7 +64,7 @@ function loadProject(projectFile) {
 }
 
 function buildDocument(ctx) {
-  const { project: pj, fgos, vosp, pop, content: c } = ctx;
+  const { project: pj, fgos, vosp, vospPrev, pop, content: c } = ctx;
   const org = pj.org;
   const PK = c.meta.pk;
   const pkCodes = PK.map(x => x[0]);
@@ -75,6 +76,10 @@ function buildDocument(ctx) {
   const LR_ALL = Object.keys(LR).map(Number).sort((a, b) => a - b);
   const lrFromOk = oks => uniq(oks.flatMap(o => okLr[o] || [])).sort((a, b) => a - b);
   const lrStr = arr => (arr.length ? 'ЛР ' + ranges(arr) : '');
+  // ПМ, шедший и в прошлом учебном году: перед ЛР текущего года — ЛР прошлого (project.json: vospitanie_prev)
+  const curYear = ((vosp.title || '').match(/(\d{4})\s*[–-]\s*(\d{4})/) || []).slice(1, 3).join('/');
+  const LR_PREV = vospPrev ? Object.keys(vospPrev.lr).map(Number).sort((a, b) => a - b) : [];
+  const yearP = y => p(`(${y} учебный год):`, { noIndent: true, before: 120, keepNext: true });
   const pmTitle = `${c.meta.pm} ${c.meta.pm_name}`;
   const pmQ = `${c.meta.pm} «${c.meta.pm_name}»`;
   const spec = `${fgos.code} ${fgos.name}`;
@@ -196,6 +201,7 @@ function buildDocument(ctx) {
       ['Иметь практический опыт', pop.results_simple.opyt], ['уметь', pop.results_simple.um], ['знать', pop.results_simple.zn],
     ].map(([k, v]) => new TableRow({ children: [cell(k, w3x[0], { bold: true }), cell(v || '', w3x[1])] })))] : [p(pop.results_intro, { after: 120 }), resultsTable]),
     h3('1.1.4. В процессе изучения профессионального модуля обучающийся должен достигать следующих личностных результатов в соответствии с программой воспитания по специальности:'),
+    ...(vospPrev ? [yearP(vospPrev.year), table(w2, [hdr(['Код ЛР из программы воспитания', 'Наименование личностных результатов'], w2), ...LR_PREV.map(n => new TableRow({ children: [cell('ЛР ' + n, w2[0]), cell(vospPrev.lr[n], w2[1])] }))]), yearP(curYear)] : []),
     table(w2, [hdr(['Код ЛР из программы воспитания', 'Наименование личностных результатов'], w2), ...LR_ALL.map(n => new TableRow({ children: [cell('ЛР ' + n, w2[0]), cell(LR[n], w2[1])] }))]),
     p(`Источник: ${vosp.title}.`, { size: 22, noIndent: true, before: 80 }),
     h2('1.2. Количество часов, отводимых на освоение профессионального модуля'),
@@ -445,6 +451,7 @@ function buildDocument(ctx) {
     p('Таблица 4.1.2. Шкала оценки освоения профессиональных компетенций', { noIndent: true, align: AlignmentType.RIGHT, keepNext: true, before: 200 }),
     simpleTable(widths(P_W, [45, 0], 1), ['Оценка', 'Критерий'], scale.map(x => [x.slice(0, 3).replace(/[«»]/g, '') + ' ' + ({'«5»':'«отлично»','«4»':'«хорошо»','«3»':'«удовлетворительно»','«2»':'«неудовлетворительно»'})[x.slice(0, 3)], cap(x.slice(6))])),
     h2('4.2. Контроль формирования личностных результатов в соответствии с программой воспитания'),
+    ...(vospPrev ? [yearP(vospPrev.year), table(w42, [hdr(['Код ЛР', 'Личностные результаты реализации программы воспитания', 'Методы и формы обучения, способствующие достижению обучающимися ЛР'], w42), ...LR_PREV.map(n => new TableRow({ children: [cell('ЛР ' + n, w42[0]), cell(vospPrev.lr[n], w42[1]), cell(vospPrev.methods[n] || '', w42[2])] }))]), yearP(curYear)] : []),
     table(w42, [hdr(['Код ЛР', 'Личностные результаты реализации программы воспитания', 'Методы и формы обучения, способствующие достижению обучающимися ЛР'], w42), ...lrRows]),
   ];
 

@@ -47,5 +47,7 @@
     "api_key_env": "LLM_API_KEY",
     "temperature": 0.4,
     "json_mode": true
-  }
+  },
+  "vospitanie_prev": "../../data/vospitanie/spet_2025-2026_09.00.00.json",
+  "_vospitanie_prev": "ПМ шёл и в 2025/2026 учебном году — ЛР прошлого года ставятся перед ЛР текущего (1.1.4, 4.2)."
 }
