@@ -19,7 +19,17 @@ function formOf(project, item, semIdx) {
 function themesFromPop(sec, T, P, att = 0) {
   // зачёт (ДЗ/З) — последняя пара семестра: она берётся из теоретических пар, если их нет — из практических
   const nT = T / LESSON - (T / LESSON >= att ? att : 0), nP = P / LESSON - (T / LESSON >= att ? 0 : att);
-  const tCount = nT ? distribute(nT, sec.themes.map(t => t.content.join(' ').length)) : sec.themes.map(() => 0);
+  // теоретических пар меньше, чем тем: темы с лабораторными работами и самым коротким содержанием остаются без теории
+  const clen = t => t.content.join(' ').length;
+  let noT = new Set();
+  if (nT && nT < sec.themes.length) {
+    const cand = sec.themes.map((t, i) => i).filter(i => sec.themes[i].labs.length).sort((x, y) => clen(sec.themes[x]) - clen(sec.themes[y]));
+    if (cand.length < sec.themes.length - nT) throw new Error(`теоретических пар (${nT}) меньше, чем тем без лабораторных работ`);
+    noT = new Set(cand.slice(0, sec.themes.length - nT));
+  }
+  const withT = sec.themes.map((t, i) => i).filter(i => !noT.has(i));
+  const tPart = nT ? distribute(nT, withT.map(i => clen(sec.themes[i]))) : [];
+  const tCount = sec.themes.map((t, i) => (nT ? (noT.has(i) ? 0 : tPart[withT.indexOf(i)]) : 0));
   // группы лабораторных работ: обычно одна работа ПОП — одна группа; если пар по плану меньше,
   // чем работ ПОП, соседние короткие работы одной темы объединяются в одно занятие (названия сохраняются полностью)
   let groups = sec.themes.flatMap((t, ti) => t.labs.map(l => ({ ti, titles: [l.title] })));
