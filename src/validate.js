@@ -121,7 +121,7 @@ function validate(content, opts = {}) {
       if (s !== u.hours) E(`${path}: занятия дают ${s} ч, по плану ${u.hours} ч`);
       if (['ДЗ', 'З'].includes(u.form)) { const lw = u.works[u.works.length - 1]; const lt = (lw.tasks || [])[(lw.tasks || []).length - 1] || []; if (!/зач[её]т/i.test(lt[0] || '') || lt[1] !== LESSON) E(`${path}: последней парой (${LESSON} ч) должен быть зачёт — сейчас «${lt[0]}», ${lt[1]} ч`); }
     });
-    if (pop && pop.up_works && content.up.length) { const used = content.up.flatMap(u => u.works.map(w => w.name)); pop.up_works.forEach(n => { if (!used.includes(n)) E(`Учебная практика: не включён вид работ ПОП «${n}»`); }); }
+    if (pop && pop.up_works && content.up.length && !content._practice_source) { const used = content.up.flatMap(u => u.works.map(w => w.name)); pop.up_works.forEach(n => { if (!used.includes(n)) E(`Учебная практика: не включён вид работ ПОП «${n}»`); }); }
   }
 
   if (stages.includes('pp')) {
@@ -137,7 +137,7 @@ function validate(content, opts = {}) {
         parseCodes(w.codes).pk.forEach(x => { if (!pkList.includes(x)) E(`${path}: ${x} не относится к модулю`); });
       });
     });
-    if (pop && pop.pp_works && content.pp.length) { const used = content.pp.flatMap(u => u.works.map(w => w.name)); pop.pp_works.forEach(n => { if (!used.includes(n)) E(`Производственная практика: не включён вид работ ПОП «${n}»`); }); }
+    if (pop && pop.pp_works && content.pp.length && !content._practice_source) { const used = content.pp.flatMap(u => u.works.map(w => w.name)); pop.pp_works.forEach(n => { if (!used.includes(n)) E(`Производственная практика: не включён вид работ ПОП «${n}»`); }); }
   }
 
   if (stages.includes('program')) {

@@ -167,6 +167,8 @@ def main():
                 out['rooms'].append(t.rstrip(':') + ('' if t.endswith('.') else '.'))
             elif mode in ('lit_main', 'lit_add') and re.match(r'^\d+\.', t):
                 out['literature_main' if mode == 'lit_main' else 'literature_add'].append(re.sub(r'^\d+\.\s*', '', t))
+            elif mode in ('lit_main', 'lit_add') and plain_lit and t.isupper():
+                mode = None
             elif mode in ('lit_main', 'lit_add') and plain_lit:
                 # формат 2022: источники без номеров; запись, оборванная на «/», продолжается в следующем абзаце
                 lst = out['literature_main' if mode == 'lit_main' else 'literature_add']
@@ -219,9 +221,9 @@ def main():
                     sec['mdk'] = f'МДК.{m.group(1)}.{m.group(2)}' if m else ''
                     sec['mdk_title_pop'] = first
                     continue
-                if first.startswith('Курсов') and 'Тематика курсовых' in r[0]:
-                    out['course_topics'] =
-                        r[0][[i for i, c in enumerate(r[0]) if c.startswith('Тематика курсовых')][0] + 1:]
+                ti = [i for i, c in enumerate(r[0] if r else []) if c.startswith('Тематика курсовых')]
+                if first.startswith('Курсов') and ti:
+                    out['course_topics'] = r[0][ti[0] + 1:]
                 if r and len(r[0]) > 2 and re.match(r'^(Учебная|Производственная) практика', r[0][0]):
                     # формат 2022: виды работ практики — абзацы ячейки после заголовка «Виды работ[:]»
                     ws = [c.rstrip(';.').strip() for c in r[0][1:] if not re.match(r'^Виды работ:?$', c)]
@@ -239,6 +241,7 @@ def main():
                 if theme is None or not body:
                     continue
                 use = True
+                last_lab = None
                 for ln in split_inline(join_quotes(body), qual):
                     dm = DOP.match(ln)
                     if dm:
@@ -251,7 +254,12 @@ def main():
                     wm = WORK.match(ln) or WORK_PLAIN.match(ln)
                     if wm:
                         theme['labs'].append({'n': 0, 'kind': wm.group(1), 'title': wm.group(2).strip().rstrip('»').strip()})
+                        last_lab = theme['labs'][-1] if WORK_PLAIN.match(ln) and not WORK.match(ln) else None
+                    elif last_lab is not None and (ln[:1].islower() or last_lab['title'].count('(') > last_lab['title'].count(')')):
+                        # формат 2022: название работы разорвано переносом строки внутри ячейки
+                        last_lab['title'] += ' ' + ln
                     else:
+                        last_lab = None
                         theme['content'].append(ln)
             continue
     for i, s in enumerate(out['sections']):
