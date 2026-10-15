@@ -80,7 +80,11 @@ async function run(dir) {
 }
 
 (async () => {
-  const dirs = process.argv.slice(2).length ? process.argv.slice(2) : fs.readdirSync(path.join(root, 'examples')).map(d => path.join(root, 'examples', d));
+  // по умолчанию — готовые примеры (с собранным .docx); незавершённые проекты проверяются явным указанием папки
+  const all = fs.readdirSync(path.join(root, 'examples')).map(d => path.join(root, 'examples', d));
+  const ready = all.filter(d => fs.readdirSync(d).some(f => f.endsWith('.docx')));
+  all.filter(d => !ready.includes(d)).forEach(d => console.log(`${path.basename(d)}: пропущен — проект не завершён (нет .docx)`));
+  const dirs = process.argv.slice(2).length ? process.argv.slice(2) : ready;
   let ok = true;
   for (const d of dirs) ok = (await run(d)) && ok;
   console.log(ok ? 'Самопроверка пройдена.' : 'Самопроверка НЕ пройдена.');
