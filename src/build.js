@@ -285,7 +285,7 @@ function buildDocument(ctx) {
           cell([cp(`${th.num || ''} ${th.name || ''}`.trim(), { bold: true })], wC[0], { rowSpan: span }),
           cell([cp(g.cont ? 'Содержание учебного материала (продолжение темы):' : ((th.content || []).length ? 'Содержание учебного материала (перечень дидактических единиц):' : 'Содержание учебного материала:'), { bold: true }), ...(th.content || []).map(t => cp(t))], wC[1]),
           cell('', wC[2]),
-          cell(codesBlock(x.pk, x.ok, lrFromOk(x.ok)), wC[3], { rowSpan: span }),
+          cell(codesBlock(x.pk, x.ok, lrOf(m, x.ok)), wC[3], { rowSpan: span }),
         ] }));
         g.lessons.forEach(l => rows.push(new TableRow({ children: [cell(`${l.num}. ${l.kind === 'T' ? l.title : practiceLabel(l)}`, wC[1]), cell(String(LESSON), wC[2], { align: C })] })));
         gSr.forEach(e => srRowsOf(e).forEach(([t, h, bold]) => rows.push(new TableRow({ children: [cell([cp(t, bold ? { bold: true } : {})], wC[1]), cell(h ? String(h) : '', wC[2], { align: C, ...(bold ? { bold: true } : {}) })] }))));
