@@ -8,7 +8,7 @@ const { D, mm, P_MARG, P_W, L_MARG, L_W, C, p, center, caption, h1, h2, h3, bull
 const { Document, Packer, Paragraph, TextRun, TableRow, Footer, PageNumber, AlignmentType, PageOrientation, VerticalAlign } = D;
 const { loadPlan, semLabel } = require('./plan.js');
 const { validate, parseCodes } = require('./validate.js');
-const { LESSON, mdkBlocks, practiceLabel, pairTitle, themeLessons, ppItems, ppHours } = require('./sequence.js');
+const { LESSON, mdkBlocks, practiceLabel, pairTitle, themeLessons, ppItems, ppHours, themeKey, srHours, srCpHours, srTasks } = require('./sequence.js');
 const PP_DAY = 6;
 
 const LETTERS = ['а', 'б', 'в', 'г'];
@@ -77,6 +77,7 @@ function buildDocument(ctx) {
   const okLr = { ...vosp.ok_lr, ...(pj.ok_lr_override || {}) };
   const LR_ALL = Object.keys(LR).map(Number).sort((a, b) => a - b);
   const lrFromOk = oks => uniq(oks.flatMap(o => okLr[o] || [])).sort((a, b) => a - b);
+  const lrOf = (m, oks) => (m.lr && m.lr.length ? m.lr : lrFromOk(oks));
   const lrStr = arr => (arr.length ? 'ЛР ' + ranges(arr) : '');
   // ПМ, шедший и в прошлом учебном году: перед ЛР текущего года — ЛР прошлого (project.json: vospitanie_prev)
   const curYear = ((vosp.title || '').match(/(\d{4})\s*[–-]\s*(\d{4})/) || []).slice(1, 3).join('/');
@@ -104,7 +105,9 @@ function buildDocument(ctx) {
   const workCodes = arr => uniq(arr.flatMap(u => u.works.flatMap(w => parseCodes(w.codes).pk))).sort();
   const upH = c.up.reduce((a, x) => a + x.hours, 0), ppH = c.pp.reduce((a, x) => a + x.hours, 0);
   const sumT = c.mdk.reduce((a, x) => a + x.T, 0), sumP = c.mdk.reduce((a, x) => a + x.P, 0), sumK = c.mdk.reduce((a, x) => a + (x.K || 0), 0);
-  const total = sumT + sumP + sumK + upH + ppH;
+  const sumS = c.mdk.reduce((a, x) => a + srHours(x), 0);
+  const total = sumT + sumP + sumK + upH + ppH + sumS;
+  const hasSr = sumS > 0;
   const codesBlock = (pk, ok, lr) => [okStr(ok), pkStr(pk), lrStr(lr)].filter(Boolean);
   const semsOf = (m, f) => m.sems.filter(s => s.form === f).map(s => s.label);
   const mdkFormsText = m => {
@@ -167,13 +170,17 @@ function buildDocument(ctx) {
   let rn = 0;
   MB.forEach(({ m, blocks }) => {
     const h = [], t = [], pr = [], f = [];
-    blocks.forEach(b => { h[b.sem] = b.hours; t[b.sem] = b.T; pr[b.sem] = b.P; if (b.form) f[b.sem] = formAbbr(b.form); semTot[b.sem] += b.hours; });
-    rows13.push(r13(`${++rn}.`, `${m.code} «${m.name}»`, h, m.T + m.P + (m.K || 0), { bold: true }),
+    const sv = [];
+    blocks.forEach(b => { h[b.sem] = b.hours; t[b.sem] = b.T; pr[b.sem] = b.P; if (b.form) f[b.sem] = formAbbr(b.form); semTot[b.sem] += b.hours + b.S; if (b.S) sv[b.sem] = b.S; });
+    const mS = srHours(m), mSc = srCpHours(m);
+    const hh = mS ? h.map((x, i) => x + (sv[i] || 0)) : h;
+    rows13.push(r13(`${++rn}.`, `${m.code} «${m.name}»`, hh, m.T + m.P + (m.K || 0) + mS, { bold: true }),
       r13('', 'Обязательной аудиторной учебной нагрузки', h, m.T + m.P + (m.K || 0)),
       r13('', 'в том числе: теоретических занятий', t, m.T),
       r13('', 'лабораторно-практических занятий', pr, m.P),
       ...(m.K ? [r13('', 'курсовой проект (работа)', m.sems.reduce((acc, s) => { acc[s.sem] = s.K || ''; return acc; }, []), m.K)] : []),
-      r13('', 'Самостоятельная работа', [], '—'),
+      r13('', 'Самостоятельная работа', mS ? sv : [], mS || '—'),
+      ...(mSc ? [r13('', 'в том числе на курсовой проект (работу)', blocks.reduce((acc, b) => { const x = (b.sr || []).filter(e => e.cp).reduce((a2, e) => a2 + (Number(e.hours) || 0), 0); if (x) acc[b.sem] = x; return acc; }, []), mSc)] : []),
       r13('', `Промежуточная аттестация в форме ${mdkFormsText(m)}`, f, ''));
   });
   const practRows = (arr, title, kind) => {
@@ -192,7 +199,7 @@ function buildDocument(ctx) {
 
   const hoursLines = [
     `Всего часов ${total}`,
-    ...c.mdk.map((m, i) => `${i ? 'на освоение' : 'Из них на освоение'} ${m.code} «${m.name}» — ${m.T + m.P + (m.K || 0)}`),
+    ...c.mdk.map((m, i) => `${i ? 'на освоение' : 'Из них на освоение'} ${m.code} «${m.name}» — ${m.T + m.P + (m.K || 0) + srHours(m)}${srHours(m) ? ` (в том числе самостоятельная работа ${srHours(m)})` : ''}`),
     `на практики, в том числе учебную ${upH} и производственную ${ppH}`,
   ];
 
@@ -227,7 +234,7 @@ function buildDocument(ctx) {
   const sumW = (a, b) => wS.slice(a, b).reduce((x, y) => x + y, 0);
   const allOk = OK_CODES;
   const structRows = [
-    ...c.mdk.map(m => { const x = mdkCodes(m); return [codesBlock(x.pk, x.ok, lrFromOk(x.ok)), `${m.section} (${m.code})`, m.T + m.P + (m.K || 0), m.T + m.P + (m.K || 0), m.P, m.K || '—', '—', '—', '—', '—']; }),
+    ...c.mdk.map(m => { const x = mdkCodes(m); return [codesBlock(x.pk, x.ok, lrOf(m, x.ok)), `${m.section} (${m.code})`, m.T + m.P + (m.K || 0) + srHours(m), m.T + m.P + (m.K || 0), m.P, m.K || '—', '—', '—', '—', srHours(m) || '—']; }),
     ...(c.up.length ? [[codesBlock(workCodes(c.up), allOk, lrFromOk(allOk)), `Учебная практика ${c.up[0].code}, часов`, upH, '—', '—', '—', upH, '—', '—', '—']] : []),
     ...(c.pp.length ? [[codesBlock(workCodes(c.pp), allOk, lrFromOk(allOk)), `Производственная практика (по профилю специальности) ${c.pp[0].code}, часов`, ppH, '—', '—', '—', '—', ppH, '—', '—']] : []),
   ];
@@ -237,7 +244,7 @@ function buildDocument(ctx) {
     new TableRow({ tableHeader: true, children: [hc('Всего', wS[3]), hc('Лабораторных и практических занятий', wS[4]), hc('Курсовых работ (проектов)', wS[5]), hc('Учебная', wS[6]), hc('Производственная', wS[7])] }),
     new TableRow({ tableHeader: true, children: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'].map((t, i) => cell(t, wS[i], { align: C })) }),
     ...structRows.map(r => new TableRow({ children: r.map((v, i) => cell(Array.isArray(v) ? v : String(v), wS[i], { align: i >= 2 ? C : L })) })),
-    new TableRow({ children: [cell('', wS[0]), cell('Всего:', wS[1], { bold: true }), ...[total, sumT + sumP + sumK, sumP, sumK || '—', upH, ppH, '—', '—'].map((v, i) => cell(String(v), wS[i + 2], { bold: true, align: C }))] }),
+    new TableRow({ children: [cell('', wS[0]), cell('Всего:', wS[1], { bold: true }), ...[total, sumT + sumP + sumK, sumP, sumK || '—', upH, ppH, '—', sumS || '—'].map((v, i) => cell(String(v), wS[i + 2], { bold: true, align: C }))] }),
   ]);
 
   const wC = widths(L_W, [55, 0, 20, 42], 1);
@@ -247,6 +254,9 @@ function buildDocument(ctx) {
     new TableRow({ tableHeader: true, children: ['1', '2', '3', '4'].map((t, i) => cell(t, wC[i], { align: C })) })];
   const lineRow = (text, hours, o = {}) => new TableRow({ children: [cell(text, span2, { colSpan: 2, ...o }), cell(hours === undefined ? '' : String(hours), wC[2], { align: C, ...o }), cell(o.codes || '', wC[3])] });
   const ktp = [];
+  // строки самостоятельной работы: [текст, часы, жирный]; не нумеруются и в нумерацию занятий не входят
+  const srRowList = e => [['Самостоятельная работа обучающихся' + ((e.intro || srTasks(e).length) ? ':' : ''), Number(e.hours) || 0, true],
+    ...(e.intro ? [[e.intro, 0, false]] : []), ...srTasks(e).map(([t, h]) => ['– ' + t, h, false])];
   MB.forEach(({ m, blocks }, mi) => {
     ktp.push(h3(`2.2.${mi + 1}. Календарно-тематический план и содержание междисциплинарного курса ${m.code} «${m.name}»`));
     const rows = ktpHead();
@@ -255,8 +265,8 @@ function buildDocument(ctx) {
     let curSection = null;
     blocks.forEach((b, bi) => {
       rows.push(fullRow(b.label, { bold: true, align: C, shade: 'F2F2F2' }));
-      rows.push(fullRow(`теор ${b.T} ч, п/р ${b.P} ч, с/р 0 ч${b.K ? `, курсовой проект ${b.K} ч` : ''}`, { italics: true }));
-      if (bi === 0 && !hasSections) rows.push(new TableRow({ children: [cell(m.section, span2, { colSpan: 2, bold: true }), cell(String(m.T + m.P + (m.K || 0)), wC[2], { bold: true, align: C }), cell(codesBlock(mc.pk, mc.ok, lrFromOk(mc.ok)), wC[3])] }));
+      rows.push(fullRow(`теор ${b.T} ч, п/р ${b.P} ч, с/р ${b.S} ч${b.K ? `, курсовой проект ${b.K} ч` : ''}`, { italics: true }));
+      if (bi === 0 && !hasSections) rows.push(new TableRow({ children: [cell(m.section, span2, { colSpan: 2, bold: true }), cell(String(m.T + m.P + (m.K || 0)), wC[2], { bold: true, align: C }), cell(codesBlock(mc.pk, mc.ok, lrOf(m, mc.ok)), wC[3])] }));
       b.groups.forEach(g => {
         const th = g.theme;
         if (hasSections && th.section && th.section !== curSection) {
@@ -264,10 +274,13 @@ function buildDocument(ctx) {
           const sth = m.themes.filter(t => t.section === th.section);
           const sh = sth.reduce((a, t) => a + themeLessons(t).length * LESSON, 0);
           const sp = uniq(sth.flatMap(t => themeCodes(t).pk)), so = uniq(sth.flatMap(t => themeCodes(t).ok));
-          rows.push(new TableRow({ children: [cell(th.section, span2, { colSpan: 2, bold: true }), cell(String(sh), wC[2], { bold: true, align: C }), cell(codesBlock(sp, so, lrFromOk(so)), wC[3])] }));
+          rows.push(new TableRow({ children: [cell(th.section, span2, { colSpan: 2, bold: true }), cell(String(sh), wC[2], { bold: true, align: C }), cell(codesBlock(sp, so, lrOf(m, so)), wC[3])] }));
         }
         const x = themeCodes(th);
-        const span = 1 + g.lessons.length;
+        // самостоятельная работа темы (sr[].theme): строки после занятий темы, внутри её ячейки
+        const gSr = b.groups.filter(x => themeKey(x.theme.num) === themeKey(th.num)).pop() === g && themeKey(th.num) ? (b.sr || []).filter(e => themeKey(e.theme) === themeKey(th.num)) : [];
+        const srRowsOf = e => srRowList(e);
+        const span = 1 + g.lessons.length + gSr.reduce((a, e) => a + srRowsOf(e).length, 0);
         rows.push(new TableRow({ children: [
           cell([cp(`${th.num || ''} ${th.name || ''}`.trim(), { bold: true })], wC[0], { rowSpan: span }),
           cell([cp(g.cont ? 'Содержание учебного материала (продолжение темы):' : ((th.content || []).length ? 'Содержание учебного материала (перечень дидактических единиц):' : 'Содержание учебного материала:'), { bold: true }), ...(th.content || []).map(t => cp(t))], wC[1]),
@@ -275,6 +288,7 @@ function buildDocument(ctx) {
           cell(codesBlock(x.pk, x.ok, lrFromOk(x.ok)), wC[3], { rowSpan: span }),
         ] }));
         g.lessons.forEach(l => rows.push(new TableRow({ children: [cell(`${l.num}. ${l.kind === 'T' ? l.title : practiceLabel(l)}`, wC[1]), cell(String(LESSON), wC[2], { align: C })] })));
+        gSr.forEach(e => srRowsOf(e).forEach(([t, h, bold]) => rows.push(new TableRow({ children: [cell([cp(t, bold ? { bold: true } : {})], wC[1]), cell(h ? String(h) : '', wC[2], { align: C, ...(bold ? { bold: true } : {}) })] }))));
       });
       if (b.K && m.course_project) {
         // курсовой проект: строка «Курсовой проект» с объёмом, ниже этапы по 2 ч с продолжением нумерации занятий
@@ -282,15 +296,25 @@ function buildDocument(ctx) {
         let n = b.groups.length ? Math.max(...b.groups.flatMap(g => g.lessons.map(l => l.num))) : 0;
         const st = [];
         (cpj.stages || []).forEach(([t, h]) => { const k = h / LESSON; for (let i = 1; i <= k; i++) st.push(k > 1 ? `${t} (часть ${i})` : t); });
-        const cpc = codesBlock(mc.pk, mc.ok, lrFromOk(mc.ok));
+        const cpc = codesBlock(mc.pk, mc.ok, lrOf(m, mc.ok));
         rows.push(new TableRow({ children: [cell([cp(cpj.title || 'Курсовой проект', { bold: true })], wC[0], { rowSpan: 1 + st.length }), cell([cp(`${cpj.title || 'Курсовой проект'}${(cpj.topics || []).length ? ' (тематика — в фонде оценочных средств)' : ''}:`, { bold: true })], wC[1]), cell(String(b.K), wC[2], { bold: true, align: C }), cell(cpc, wC[3], { rowSpan: 1 + st.length })] }));
         st.forEach(t => rows.push(new TableRow({ children: [cell(`${++n}. ${t}`, wC[1]), cell(String(LESSON), wC[2], { align: C })] })));
       }
-      if (bi === blocks.length - 1) rows.push(lineRow('Самостоятельная работа (по разделу, МДК): учебным планом не предусмотрена', '—'));
+      // самостоятельная работа без темы (или по курсовому проекту): отдельный блок строк со своим названием
+      const rest = (b.sr || []).filter(e => !themeKey(e.theme) || !b.groups.some(g => themeKey(g.theme.num) === themeKey(e.theme)));
+      rest.forEach(e => {
+        const rr = srRowList(e);
+        rr.forEach(([t, h, bold], i) => rows.push(new TableRow({ children: [
+          ...(i === 0 ? [cell([cp(e.title || 'Внеаудиторная самостоятельная работа', { bold: true })], wC[0], { rowSpan: rr.length })] : []),
+          cell([cp(t, bold ? { bold: true } : {})], wC[1]), cell(h ? String(h) : '', wC[2], { align: C, ...(bold ? { bold: true } : {}) }),
+          ...(i === 0 ? [cell(codesBlock(mc.pk, mc.ok, lrOf(m, mc.ok)), wC[3], { rowSpan: rr.length })] : []),
+        ] })));
+      });
+      if (bi === blocks.length - 1 && !srHours(m)) rows.push(lineRow('Самостоятельная работа (по разделу, МДК): учебным планом не предусмотрена', '—'));
       const attInside = b.groups.some(g => g.lessons.some(l => l.att));
       if (b.form && !attInside) rows.push(lineRow(`Промежуточная аттестация в форме ${formGen(b.form)}`, '—', { italics: true }));
     });
-    rows.push(lineRow(`Всего по ${m.code}`, m.T + m.P + (m.K || 0), { bold: true }));
+    rows.push(lineRow(`Всего по ${m.code}`, m.T + m.P + (m.K || 0) + srHours(m), { bold: true }));
     ktp.push(table(wC, rows));
   });
   // КТП практик — по образцу рабочих программ практик техникума (РП УП/ПП ПМ.07 ОП-2302ис, ПМ.05/06 ОП-2202ис):
@@ -452,7 +476,7 @@ function buildDocument(ctx) {
   const sec4 = [
     h1('4. Контроль и оценка результатов освоения программы профессионального модуля'),
     h2('4.1. Контроль и оценка результатов освоения программы профессионального модуля включает текущий контроль успеваемости и промежуточную аттестацию.'),
-    p('Текущий контроль проводится в форме устных опросов по темам, тестирования, выполнения и защиты практических работ. Самостоятельная внеаудиторная работа учебным планом не предусмотрена.'),
+    p('Текущий контроль проводится в форме устных опросов по темам, тестирования, выполнения и защиты практических работ. ' + (hasSr ? 'Самостоятельная внеаудиторная работа (' + sumS + ' ч) предусмотрена учебным планом; перечень заданий и часы — в п. 2.2, результаты проверяются преподавателем при текущем контроле.' : 'Самостоятельная внеаудиторная работа учебным планом не предусмотрена.')),
     p('В основе текущего контроля используется пятибалльная шкала оценки («5» отлично, «4» хорошо, «3» удовлетворительно, «2» неудовлетворительно).'),
     p('Формы и методы текущего контроля по профессиональному модулю доводятся до сведения обучающихся в начале изучения модуля.'),
     p('По рабочей программе создан фонд оценочных средств (ФОС), который включает в себя педагогические контрольно-оценочные средства, предназначенные для определения соответствия (или несоответствия) персональных образовательных достижений основным показателям результатов подготовки профессионального модуля (раздел 5 настоящей программы: по каждому МДК с разбивкой по семестрам, по учебной и производственной практике, по экзамену по модулю).'),
@@ -501,7 +525,7 @@ function buildDocument(ctx) {
   const FN = { up: 1, pp: 2, char: 3, sheet: 4, proto: 5, exam: 6 };
 
   const f5 = [h1('5. Фонд оценочных средств'),
-    p(`Фонд оценочных средств (ФОС) сформирован по элементам профессионального модуля: для каждого МДК — по семестрам (текущий контроль и промежуточная аттестация), затем для учебной и производственной практики и для экзамена по модулю. Самостоятельная внеаудиторная работа учебным планом группы ${pj.group} не предусмотрена.`),
+    p(`Фонд оценочных средств (ФОС) сформирован по элементам профессионального модуля: для каждого МДК — по семестрам (текущий контроль и промежуточная аттестация), затем для учебной и производственной практики и для экзамена по модулю. ${hasSr ? `Самостоятельная внеаудиторная работа (${sumS} ч) предусмотрена учебным планом группы ${pj.group}; её результаты проверяются преподавателем при текущем контроле.` : `Самостоятельная внеаудиторная работа учебным планом группы ${pj.group} не предусмотрена.`}`),
     h2('5.1. Общие критерии оценки'),
     caption('Критерии оценки практической работы'), prCrit,
     p('Тестирование проводится по завершении изучения тем в электронной среде (СДО Moodle) или на бланке; время — 1 минута на вопрос. Каждое задание имеет один правильный ответ и оценивается в 1 балл.', { before: 120 }),
@@ -513,7 +537,7 @@ function buildDocument(ctx) {
     sn += 1;
     const x = mdkCodes(m);
     f5.push(pageBreak(), h2(`5.${sn}. Фонд оценочных средств по ${m.code} «${m.name}»`),
-      p(`Проверяемые результаты: ${okStr(x.ok)}; ${pkStr(x.pk)}; ${lrStr(lrFromOk(x.ok))}. Формы промежуточной аттестации: ${mdkFormsText(m)}.`, { italics: true }));
+      p(`Проверяемые результаты: ${okStr(x.ok)}; ${pkStr(x.pk)}; ${lrStr(lrOf(m, x.ok))}. Формы промежуточной аттестации: ${mdkFormsText(m)}.`, { italics: true }));
     // последний семестр, в котором встречается тема — тест по теме проводится в этом семестре
     const themeSem = {};
     blocks.forEach(b => b.groups.forEach(g => { themeSem[g.ti] = b.sem; }));
@@ -542,6 +566,7 @@ function buildDocument(ctx) {
           ['3 «удовлетворительно»', 'Проект выполнен не полностью или с ошибками в расчётах; обоснование решений слабое; ответы на защите неполные'],
           ['2 «неудовлетворительно»', 'Проект не выполнен или содержит грубые ошибки; на защите обучающийся не может пояснить решения']]));
       }
+      if (b.S) f5.push(sub('Текущий контроль. Самостоятельная внеаудиторная работа'), p(`Объём — ${b.S} ч.${(() => { const z = b.sr.map(e => [e.intro, srTasks(e).map(x => x[0]).join('; ')].filter(Boolean).join(' ')).filter(Boolean).join('; '); return z ? ` Задания: ${z}.` : ''; })()} Выполнение проверяется преподавателем.`));
       f5.push(sub('Промежуточная аттестация'));
       if (!b.form) f5.push(p('Промежуточная аттестация в семестре учебным планом не предусмотрена; оценка за семестр выставляется по результатам текущего контроля.'));
       else if (['ДР', 'КР'].includes(b.form) && fos.control_works[m.code]) {
@@ -676,7 +701,7 @@ async function build(projectFile, opts = {}) {
   const ctx = loadProject(projectFile);
   if (!ctx.content) throw new Error(`Нет файла наполнения ${ctx.contentPath}. Сначала выполните init и fill.`);
   if (!ctx.pop) throw new Error('В project.json не указан файл ПОП (поле "pop").');
-  const v = validate(ctx.content, { pop: ctx.pop });
+  const v = validate(ctx.content, { pop: ctx.pop, plan: ctx.plan });
   v.warnings.forEach(w => console.log('  предупреждение:', w));
   if (v.errors.length && !opts.force) {
     v.errors.forEach(e => console.log('  ОШИБКА:', e));

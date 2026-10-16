@@ -66,7 +66,7 @@ async function run(dir) {
     if (e.length) { fails.push(`${st.id}: ${e.slice(0, 3).join('; ')}`); continue; }
     fresh.apply(data);
   }
-  const v = validate(ctx.content, { pop: ctx.pop });
+  const v = validate(ctx.content, { pop: ctx.pop, plan: ctx.plan });
   const L = require('./lint_content.js').lint(ctx.content);
   L.errors.forEach(e => v.errors.push('lint: ' + e));
   const doc = buildDocument(ctx).doc;

@@ -1,7 +1,7 @@
 // Строгая проверка наполнения перед сборкой документа.
 // Ошибки (errors) блокируют сборку, предупреждения (warnings) — нет.
 'use strict';
-const { LESSON, mdkBlocks, attSems, ppItems, ppText, ppHours } = require('./sequence.js');
+const { LESSON, mdkBlocks, attSems, ppItems, ppText, ppHours, themeKey, srHours, srCpHours, srTasks } = require('./sequence.js');
 const PP_DAY = 6;
 
 const OK_CODES = ['ОК 01', 'ОК 02', 'ОК 03', 'ОК 04', 'ОК 05', 'ОК 06', 'ОК 07', 'ОК 08', 'ОК 09'];
@@ -97,6 +97,26 @@ function validate(content, opts = {}) {
       const titles = m.themes.flatMap(th => th.theory || []);
       const dup = titles.filter((x, i) => titles.indexOf(x) !== i);
       if (dup.length) W(`${m.code}: повторяются названия занятий: ${[...new Set(dup)].slice(0, 5).join('; ')}`);
+      // самостоятельная работа: m.sr = [{sem, hours, tasks, theme, cp}] — сумма по МДК = «Самостоятельная» плана
+      const planItem = opts.plan && (opts.plan.items || []).find(i => i.index === m.code);
+      if (Array.isArray(m.sr) && m.sr.length) {
+        m.sr.forEach((e, i) => {
+          const sp = `${m.code}, самостоятельная работа №${i + 1}`;
+          if (!(m.sems || []).some(s => s.sem === e.sem)) E(`${sp}: семестр sem=${e.sem} не входит в семестры МДК`);
+          if (!(Number(e.hours) > 0)) E(`${sp}: hours должно быть больше 0`);
+          if ((!Array.isArray(e.tasks) || !e.tasks.length) && !nonEmpty(e.intro)) W(`${sp}: нет заданий (tasks) — в документе будут только часы`);
+          const tk = srTasks(e);
+          tk.forEach(([t]) => { if (!nonEmpty(t)) E(`${sp}: пустое задание`); });
+          if (tk.length && tk.every(x => x[1] > 0) && tk.reduce((a, x) => a + x[1], 0) !== Number(e.hours)) E(`${sp}: часы заданий (${tk.reduce((a, x) => a + x[1], 0)}) не равны hours (${e.hours})`);
+          if (e.theme && !m.themes.some(th => themeKey(th.num) === themeKey(e.theme))) E(`${sp}: тема «${e.theme}» не найдена в МДК`);
+        });
+        if (srCpHours(m) > 0 && !m.course_project) E(`${m.code}: самостоятельная работа на курсовой проект (cp), а курсового проекта нет`);
+      }
+      if (planItem) {
+        const sh = srHours(m);
+        if (Array.isArray(m.sr) && sh !== planItem.self) E(`${m.code}: сумма часов самостоятельной работы (sr) ${sh} ≠ «Самостоятельная» по плану (${planItem.self})`);
+        if (!Array.isArray(m.sr) && planItem.self > 0) W(`${m.code}: по плану самостоятельная работа ${planItem.self} ч, а в наполнении нет sr — документ напишет, что СР нет`);
+      }
       if (m.course_project) {
         const cp = m.course_project;
         if (!cp.topics_ref && (cp.topics || []).length < 10) E(`${m.code}: курсовой проект — нужно не меньше 10 тем`);
