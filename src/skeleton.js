@@ -19,7 +19,17 @@ function formOf(project, item, semIdx) {
 function themesFromPop(sec, T, P, att = 0) {
   // зачёт (ДЗ/З) — последняя пара семестра: она берётся из теоретических пар, если их нет — из практических
   const nT = T / LESSON - (T / LESSON >= att ? att : 0), nP = P / LESSON - (T / LESSON >= att ? 0 : att);
-  const tCount = nT ? distribute(nT, sec.themes.map(t => t.content.join(' ').length)) : sec.themes.map(() => 0);
+  // теоретических пар меньше, чем тем: темы с лабораторными работами и самым коротким содержанием остаются без теории
+  const clen = t => t.content.join(' ').length;
+  let noT = new Set();
+  if (nT && nT < sec.themes.length) {
+    const cand = sec.themes.map((t, i) => i).filter(i => sec.themes[i].labs.length).sort((x, y) => clen(sec.themes[x]) - clen(sec.themes[y]));
+    if (cand.length < sec.themes.length - nT) throw new Error(`теоретических пар (${nT}) меньше, чем тем без лабораторных работ`);
+    noT = new Set(cand.slice(0, sec.themes.length - nT));
+  }
+  const withT = sec.themes.map((t, i) => i).filter(i => !noT.has(i));
+  const tPart = nT ? distribute(nT, withT.map(i => clen(sec.themes[i]))) : [];
+  const tCount = sec.themes.map((t, i) => (nT ? (noT.has(i) ? 0 : tPart[withT.indexOf(i)]) : 0));
   // группы лабораторных работ: обычно одна работа ПОП — одна группа; если пар по плану меньше,
   // чем работ ПОП, соседние короткие работы одной темы объединяются в одно занятие (названия сохраняются полностью)
   let groups = sec.themes.flatMap((t, ti) => t.labs.map(l => ({ ti, titles: [l.title] })));
@@ -50,12 +60,14 @@ function buildSkeleton(plan, project, fgos, pop) {
     const sems = it.sem.map((h, s) => ({ h, s })).filter(x => x.h > 0).map(x => ({ sem: x.s, label: semLabel(x.s, off), hours: x.h, form: formOf(project, it, x.s) }));
     if (sems.reduce((a, x) => a + x.hours, 0) !== it.theory + it.practice + it.course) errors.push(`${it.index}: сумма часов по семестрам ≠ теория + практика + курсовой`);
     if (it.course) sems[sems.length - 1].K = it.course;
-    const sec = pop && pop.sections.find(x => x.mdk === it.index);
+    const popMdk = (project.pop_mdk_map || {})[it.index] || it.index; // МДК плана ≠ коду раздела ПОП
+    const sec = pop && pop.sections.find(x => x.mdk === popMdk);
     if (pop && !sec) errors.push(`${it.index}: в файле ПОП нет раздела для этого МДК`);
     let themes = [];
     if (sec) { try { themes = themesFromPop(sec, it.theory, it.practice, sems.filter(s => ['ДЗ', 'З'].includes(s.form)).length); } catch (e) { errors.push(`${it.index}: ${e.message}`); } }
     return {
       code: it.index, name: it.name, section: sec ? sec.section : `Раздел ${i + 1}. ${it.name}`,
+      ...(popMdk !== it.index ? { pop_mdk: popMdk } : {}),
       T: it.theory, P: it.practice, K: it.course, sems, themes,
       course_project: it.course ? { hours: it.course, topics: [], stages: [] } : null,
     };

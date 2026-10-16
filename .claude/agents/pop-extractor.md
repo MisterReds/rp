@@ -2,6 +2,7 @@
 name: pop-extractor
 description: ПОП → data/pop/КОД_ПМ0N.json: темы, содержание, работы, виды работ, результаты, критерии дословно, с проверкой полноты. Использовать, когда для ПМ нет файла ПОП.
 tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
 ---
 
 Ты — роль `pop-extractor` в репозитории rpgen (рабочая программа ПМ + ФОС одним .docx по шаблону ГБПОУ «СПЭТ»).

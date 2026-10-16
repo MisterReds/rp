@@ -56,7 +56,7 @@ async function run(dir) {
   });
   const fails = [];
   // практики, перенесённые из готовых программ практик (_practice_source), этапами не генерируются — переносятся как есть
-  if (ref._practice_source) { ctx.content.up = ref.up; ctx.content.pp = ref.pp; }
+  if (ref._practice_source) { ctx.content.up = ref.up; ctx.content.pp = ref.pp; ctx.content._practice_source = ref._practice_source; }
   for (const st of listStages(ctx)) {
     if (ref._practice_source && /^(up|pp):/.test(st.id)) continue;
     const fresh = listStages(ctx).find(s => s.id === st.id);
@@ -66,7 +66,7 @@ async function run(dir) {
     if (e.length) { fails.push(`${st.id}: ${e.slice(0, 3).join('; ')}`); continue; }
     fresh.apply(data);
   }
-  const v = validate(ctx.content, { pop: ctx.pop });
+  const v = validate(ctx.content, { pop: ctx.pop, plan: ctx.plan });
   const L = require('./lint_content.js').lint(ctx.content);
   L.errors.forEach(e => v.errors.push('lint: ' + e));
   const doc = buildDocument(ctx).doc;
@@ -80,7 +80,11 @@ async function run(dir) {
 }
 
 (async () => {
-  const dirs = process.argv.slice(2).length ? process.argv.slice(2) : fs.readdirSync(path.join(root, 'examples')).map(d => path.join(root, 'examples', d));
+  // по умолчанию — готовые примеры (с собранным .docx); незавершённые проекты проверяются явным указанием папки
+  const all = fs.readdirSync(path.join(root, 'examples')).map(d => path.join(root, 'examples', d));
+  const ready = all.filter(d => fs.readdirSync(d).some(f => f.endsWith('.docx')));
+  all.filter(d => !ready.includes(d)).forEach(d => console.log(`${path.basename(d)}: пропущен — проект не завершён (нет .docx)`));
+  const dirs = process.argv.slice(2).length ? process.argv.slice(2) : ready;
   let ok = true;
   for (const d of dirs) ok = (await run(d)) && ok;
   console.log(ok ? 'Самопроверка пройдена.' : 'Самопроверка НЕ пройдена.');

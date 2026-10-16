@@ -91,6 +91,11 @@ def main():
         if not any(t.upper().startswith(sec) and len(t) < 160 for t in text):
             errs.append(f'нет раздела «{sec.strip()}»')
 
+    for bad in ('undefined', 'null', 'NaN', '[object Object]'):
+        n = len(re.findall(r'(?<![\w-])' + re.escape(bad) + r'(?![\w-])', full))
+        if n:
+            errs.append(f'в тексте «{bad}» ({n}) — не подставились данные')
+
     for rx, why in [(r'\[Ф\. ?И\. ?О\.[^\]]*\]', 'не заполнены Ф. И. О.'), (r'\[проверить[^\]]*\]', 'пометки [проверить]'), (r'_{4,}', 'пустые поля ____')]:
         n = len(re.findall(rx, full))
         if n:
