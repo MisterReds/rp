@@ -21,9 +21,14 @@ def main():
     path, pm = sys.argv[1], sys.argv[2]
     n = pm.replace('ПМ.', '')
     rows = {}
+    pdp = []  # преддипломная практика: в плане может входить в строку ПМ, в программу модуля не входит
     for line in open(path, encoding='utf-8'):
         c = [x.strip() for x in line.rstrip('\n').split('\t')]
         idx = c[0].rstrip('.')
+        if re.match(r'^ПДП(\.|$)', idx):
+            pv = [num(x) for x in c[3:]]
+            if not any(v is None for v in pv):
+                pdp.append((idx, pv[6:]))
         if idx == pm or idx.startswith(f'МДК.{n}.') or idx in (f'УП.{n}', f'ПП.{n}') or idx.startswith((f'УП.{n}.', f'ПП.{n}.')):
             vals = [num(x) for x in c[3:]]
             if any(v is None for v in vals):
@@ -60,7 +65,10 @@ def main():
         pm_sem = rows[pm][1][6:]
         parts = [v[6:] for k, (c, v) in rows.items() if k != pm]
         tot = [sum(p[i] if i < len(p) else 0 for p in parts) for i in range(len(pm_sem))]
-        if [round(x) for x in tot] != [round(x) for x in pm_sem]:
+        with_pdp = [t + sum(p[1][i] if i < len(p[1]) else 0 for p in pdp) for i, t in enumerate(tot)]
+        if [round(x) for x in tot] != [round(x) for x in pm_sem] and pdp and [round(x) for x in with_pdp] == [round(x) for x in pm_sem]:
+            print(f'ПРИМЕЧАНИЕ {pm}: по семестрам {[int(x) for x in pm_sem]}, сумма МДК+УП+ПП {[int(x) for x in tot]}; разница — {", ".join(i for i, _ in pdp)} (в программу модуля не входит)')
+        elif [round(x) for x in tot] != [round(x) for x in pm_sem]:
             errs.append(f'{pm}: по семестрам {[int(x) for x in pm_sem]}, а сумма МДК+УП+ПП {[int(x) for x in tot]}')
     for e in errs:
         print('ОШИБКА ' + e)
