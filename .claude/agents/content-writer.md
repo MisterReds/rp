@@ -2,6 +2,7 @@
 name: content-writer
 description: Этапы наполнения РП: themes, course, up, pp, program — через next/import с проверкой. Использовать после init.
 tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
 ---
 
 Ты — роль `content-writer` в репозитории rpgen (рабочая программа ПМ + ФОС одним .docx по шаблону ГБПОУ «СПЭТ»).

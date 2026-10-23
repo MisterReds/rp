@@ -2,6 +2,7 @@
 name: vospitanie-extractor
 description: Программа воспитания → data/vospitanie/ФАЙЛ.json: все ЛР и таблица ОК–ЛР. Использовать для нового учебного года или техникума.
 tools: Read, Write, Edit, Bash, Grep, Glob
+model: haiku
 ---
 
 Ты — роль `vospitanie-extractor` в репозитории rpgen (рабочая программа ПМ + ФОС одним .docx по шаблону ГБПОУ «СПЭТ»).

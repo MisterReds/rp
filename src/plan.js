@@ -59,8 +59,18 @@ function moduleFromPlan(plan, pmCode) {
   const mdk = plan.items.filter(i => i.index.startsWith(`МДК.${n}.`));
   const up = plan.items.filter(i => i.index === `УП.${n}` || i.index.startsWith(`УП.${n}.`));
   const pp = plan.items.filter(i => i.index === `ПП.${n}` || i.index.startsWith(`ПП.${n}.`));
-  const lastSem = pm.sem.reduce((a, h, i) => (h > 0 ? i : a), -1);
-  return { pm, mdk, up, pp, lastSem, nSem: plan.nSem };
+  // Преддипломная практика ПДП.00 бывает включена в строку ПМ плана, но в программу модуля не входит:
+  // если строка ПМ больше суммы МДК + УП + ПП ровно на часы ПДП по семестрам — они вычитаются из строки ПМ.
+  const sumSem = items => Array.from({ length: plan.nSem }, (_, s) => items.reduce((a, i) => a + (i.sem[s] || 0), 0));
+  const sumOf = (items, k) => items.reduce((a, i) => a + (i[k] || 0), 0);
+  const parts = [...mdk, ...up, ...pp], pdp = plan.items.filter(i => /^ПДП(\.|$)/.test(i.index));
+  const partSem = sumSem(parts), pdpSem = sumSem(pdp);
+  let pmEff = pm;
+  if (pdp.length && partSem.some((h, s) => h !== pm.sem[s]) && partSem.every((h, s) => h + pdpSem[s] === pm.sem[s])) {
+    pmEff = { ...pm, sem: partSem, oblig: pm.oblig - sumOf(pdp, 'oblig'), max: pm.max - sumOf(pdp, 'max'), self: pm.self - sumOf(pdp, 'self'), practice: pm.practice - sumOf(pdp, 'practice'), pdp: pdp.map(i => i.index) };
+  }
+  const lastSem = pmEff.sem.reduce((a, h, i) => (h > 0 ? i : a), -1);
+  return { pm: pmEff, mdk, up, pp, lastSem, nSem: plan.nSem };
 }
 
 function loadPlan(file) { return parsePlanText(fs.readFileSync(file, 'utf8')); }

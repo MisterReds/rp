@@ -2,6 +2,7 @@
 name: plan-reader
 description: Учебный план группы (.xlsx) → data/plans/ГРУППА.tsv с проверкой сумм. Использовать, когда для группы нет TSV плана.
 tools: Read, Write, Edit, Bash, Grep, Glob
+model: haiku
 ---
 
 Ты — роль `plan-reader` в репозитории rpgen (рабочая программа ПМ + ФОС одним .docx по шаблону ГБПОУ «СПЭТ»).

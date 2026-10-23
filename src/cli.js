@@ -109,7 +109,7 @@ async function main() {
       fresh.apply(data); markDone(ctx, fresh.id); saveContent(ctx);
       console.log('   готово');
     }
-    const v = validate(ctx.content, { pop: ctx.pop });
+    const v = validate(ctx.content, { pop: ctx.pop, plan: ctx.plan });
     console.log(v.errors.length ? `\nПроверка: ${v.errors.length} ошибок — rpgen validate` : '\nВсе этапы выполнены, проверка пройдена. Далее: rpgen build');
     return;
   }
@@ -143,7 +143,7 @@ async function main() {
   }
 
   if (cmd === 'validate') {
-    const v = validate(ctx.content, { pop: ctx.pop });
+    const v = validate(ctx.content, { pop: ctx.pop, plan: ctx.plan });
     v.errors.forEach(e => console.log('ОШИБКА: ' + e));
     v.warnings.forEach(w => console.log('предупреждение: ' + w));
     console.log(v.errors.length ? `Итого ошибок: ${v.errors.length}` : 'Ошибок нет.');
