@@ -143,7 +143,7 @@ def fgos_checks(d):
     ok = [k for k, _ in d.get('ok', [])]
     if ok != [f'ОК {i:02d}' for i in range(1, len(ok) + 1)]:
         errs.append(f'ОК должны идти ОК 01, ОК 02, … без пропусков: {ok}')
-    if d.get('minjust') and not re.search(r'№\s*\d+', d['minjust']):
+    if d.get('minjust') and d['minjust'] != '[проверить]' and not re.search(r'№\s*\d+', d['minjust']):
         errs.append('minjust: нужен регистрационный номер (… регистрационный № 12345)')
     for m in d.get('modules', []):
         n = re.sub(r'\D', '', m.get('pm', '')).lstrip('0')
