@@ -80,7 +80,7 @@ function listStages(ctx) {
   c.mdk.filter(m => m.course_project && !m.custom).forEach(m => S.push({
     id: `course:${m.code}`, title: `Курсовой проект ${m.code} (${m.K} ч)`,
     prompt: () => tpl('course', { ...vars0, mdk_code: m.code, mdk_name: m.name, hours: m.K }),
-    check: d => { const e = []; const sum = (d.stages || []).reduce((a, x) => a + (Number(x[1]) || 0), 0); if ((d.topics || []).length < 10) e.push('topics: нужно не меньше 10 тем'); if (sum !== m.K) e.push(`stages: сумма ${sum} ч, нужно ${m.K}`); (d.stages || []).forEach(x => { if (x[1] % LESSON) e.push(`этап «${x[0]}» не кратен 2 ч`); }); return e; },
+    check: d => { const e = []; const sum = (d.stages || []).reduce((a, x) => a + (Number(x[1]) || 0), 0); const popT = pop.course_topics || []; const fromPop = popT.length > 0 && popT.length < 10 && (d.topics || []).length === popT.length && d.topics.every(t => popT.includes(t)); if ((d.topics || []).length < 10 && !fromPop) e.push('topics: нужно не меньше 10 тем (или все темы ПОП дословно, если в ПОП их меньше 10)'); if (sum !== m.K) e.push(`stages: сумма ${sum} ч, нужно ${m.K}`); (d.stages || []).forEach(x => { if (x[1] % LESSON) e.push(`этап «${x[0]}» не кратен 2 ч`); }); return e; },
     apply: d => { m.course_project = { hours: m.K, topics: d.topics, stages: d.stages }; },
   }));
 
