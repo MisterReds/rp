@@ -119,7 +119,10 @@ function validate(content, opts = {}) {
       }
       if (m.course_project) {
         const cp = m.course_project;
-        if (!cp.topics_ref && (cp.topics || []).length < 10) E(`${m.code}: курсовой проект — нужно не меньше 10 тем`);
+        // тематика курсовых из ПОП дословно: если в ПОП меньше 10 тем, достаточно всех тем ПОП
+        const popTopics = (pop && pop.course_topics) || [];
+        const fromPop = popTopics.length > 0 && popTopics.length < 10 && (cp.topics || []).length === popTopics.length && cp.topics.every(t => popTopics.includes(t));
+        if (!cp.topics_ref && !fromPop && (cp.topics || []).length < 10) E(`${m.code}: курсовой проект — нужно не меньше 10 тем`);
         if (sumH(cp.stages) !== cp.hours) E(`${m.code}: этапы курсового проекта дают ${sumH(cp.stages)} ч, по плану ${cp.hours} ч`);
       }
     });
