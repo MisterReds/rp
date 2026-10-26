@@ -89,7 +89,7 @@ function buildSkeleton(plan, project, fgos, pop) {
       meta: {
         pm: project.pm, pm_name: mod.name, vd: mod.vd, total_hours: total,
         exam_sem: m.lastSem, exam_label: semLabel(m.lastSem, off), n_sem: plan.nSem,
-        pk: mod.pk, ok: fgos.ok.map(x => x[0]),
+        pk: mod.pk, ok: (() => { const pk = Object.keys(((pop || {}).results || {}).ok || {}); const all = fgos.ok.map(x => x[0]); const own = all.filter(k => pk.includes(k)); return own.length ? own : all; })(),
       },
       mdk, up, pp,
       program: { pk_methods: {}, conditions: { equipment: {}, software: [] }, lr_methods: {} },

@@ -19,7 +19,7 @@ function contextBlock(ctx) {
     `Модуль: ${c.meta.pm} «${c.meta.pm_name}» (${c.meta.vd}), объём ${c.meta.total_hours} ч, группа ${pj.group}, форма обучения ${pj.form}.`,
     'Профессиональные компетенции модуля (ФГОС):',
     ...c.meta.pk.map(([k, n]) => `${k}. ${n}`),
-    'Общие компетенции: ' + fgos.ok.map(([k, n]) => `${k} — ${n}`).join('; '),
+    'Общие компетенции: ' + fgos.ok.filter(x => !(c.meta.ok && c.meta.ok.length) || c.meta.ok.includes(x[0])).map(([k, n]) => `${k} — ${n}`).join('; '),
     'Состав модуля по учебному плану:',
     ...c.mdk.map(m => `${m.code} «${m.name}» (${m.section}): теория ${m.T} ч, практика ${m.P} ч; ` + m.sems.map(b => `${b.label} — ${b.hours} ч${b.form ? ` (${FORM_NAMES[b.form] || b.form})` : ''}`).join(', ')),
     ...c.up.map(u => `${u.code} учебная практика: ${u.label} — ${u.hours} ч${u.form ? ` (${FORM_NAMES[u.form] || u.form})` : ''}`),

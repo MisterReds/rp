@@ -70,7 +70,8 @@ function buildDocument(ctx) {
   const org = pj.org;
   const PK = c.meta.pk;
   const pkCodes = PK.map(x => x[0]);
-  const OK = fgos.ok;
+  // ОК модуля — из наполнения (meta.ok, по ПООП/ПОП модуля); нет — все ОК ФГОС
+  const OK = (c.meta.ok && c.meta.ok.length) ? fgos.ok.filter(x => c.meta.ok.includes(x[0])) : fgos.ok;
   const OK_CODES = OK.map(x => x[0]);
   const okAllStr = okStr(OK_CODES);
   const LR = vosp.lr;
@@ -153,7 +154,12 @@ function buildDocument(ctx) {
   { const rest = P_W - wR[0]; wR[1] = Math.floor(rest / 3); wR[2] = Math.floor(rest / 3); wR[3] = rest - wR[1] - wR[2]; }
   const w3x = widths(P_W, [45, 0], 1);
   const resultsTable = pop.results_simple ? null : table(wR, [hdr(['Код ОК, ПК', 'Уметь', 'Знать', 'Владеть навыками'], wR),
-    ...OK_CODES.map(o => new TableRow({ children: [cell(o, wR[0]), listCell((res.ok[o] || {}).um, wR[1]), listCell((res.ok[o] || {}).zn, wR[2]), listCell((res.ok[o] || {}).nav, wR[3])] })),
+    ...(() => { // подряд идущие ОК с одинаковыми результатами — одной строкой, как в ПОП («ОК 01, ОК 02, ОК 09»)
+      const key = o => JSON.stringify([(res.ok[o] || {}).um || [], (res.ok[o] || {}).zn || [], (res.ok[o] || {}).nav || []]);
+      const groups = [];
+      OK_CODES.forEach(o => { const g = groups[groups.length - 1]; if (g && key(g[0]) === key(o) && (res.ok[o] || {}).um) g.push(o); else groups.push([o]); });
+      return groups.map(g => { const o = g[0]; return new TableRow({ children: [cell(g.join(', '), wR[0]), listCell((res.ok[o] || {}).um, wR[1]), listCell((res.ok[o] || {}).zn, wR[2]), listCell((res.ok[o] || {}).nav, wR[3])] }); });
+    })(),
     ...pkCodes.map(k => new TableRow({ children: [cell(k, wR[0]), listCell((res.pk[k] || {}).um, wR[1]), listCell((res.pk[k] || {}).zn, wR[2]), listCell((res.pk[k] || {}).nav, wR[3])] }))]);
 
   // 1.3 распределение часов по семестрам
