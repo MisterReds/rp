@@ -77,7 +77,7 @@ function listStages(ctx) {
     apply: d => { d.themes.forEach((th, i) => { m.themes[i].theory = th.theory; m.themes[i].codes = th.codes; }); },
   }));
 
-  c.mdk.filter(m => m.course_project).forEach(m => S.push({
+  c.mdk.filter(m => m.course_project && !m.custom).forEach(m => S.push({
     id: `course:${m.code}`, title: `Курсовой проект ${m.code} (${m.K} ч)`,
     prompt: () => tpl('course', { ...vars0, mdk_code: m.code, mdk_name: m.name, hours: m.K }),
     check: d => { const e = []; const sum = (d.stages || []).reduce((a, x) => a + (Number(x[1]) || 0), 0); if ((d.topics || []).length < 10) e.push('topics: нужно не меньше 10 тем'); if (sum !== m.K) e.push(`stages: сумма ${sum} ч, нужно ${m.K}`); (d.stages || []).forEach(x => { if (x[1] % LESSON) e.push(`этап «${x[0]}» не кратен 2 ч`); }); return e; },
