@@ -48,5 +48,6 @@
     "temperature": 0.4,
     "json_mode": true
   },
-  "_plan_note": "МДК.01.04 и МДК.01.05 — из РП преподавателя (sources/is100205/rp_mdk0104.docx, rp_mdk0105.docx)"
+  "_plan_note": "МДК.01.04 и МДК.01.05 — из РП преподавателя (sources/is100205/rp_mdk0104.docx, rp_mdk0105.docx)",
+  "tight_breaks": true
 }

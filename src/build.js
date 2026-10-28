@@ -66,6 +66,8 @@ function loadProject(projectFile) {
 }
 
 function buildDocument(ctx) {
+  // project.json: "tight_breaks": true — разрыв страницы в строке высотой 1 пт (без пустой страницы, если предыдущая заполнена целиком)
+  const pageBreak = ctx.project.tight_breaks ? () => new Paragraph({ spacing: { before: 0, after: 0, line: 20, lineRule: 'exact' }, children: [new TextRun({ text: '', size: 2 }), new D.PageBreak()] }) : H.pageBreak;
   const { project: pj, fgos, vosp, vospPrev, pop, lit, content: c } = ctx;
   const org = pj.org;
   const PK = c.meta.pk;

@@ -201,10 +201,10 @@
   {
    "q": "Какая утилита определяет маршрут пакетов по промежуточным узлам?",
    "options": [
-    "traceroute (tracert)",
-    "ipconfig",
+    "tracert",
+    "ipconfig /all",
     "nslookup",
-    "hostname"
+    "netstat -an"
    ],
    "answer": 0,
    "t": 7
