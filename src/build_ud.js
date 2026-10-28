@@ -48,7 +48,7 @@ const rightCap = t => p(t, { italics: true, size: 20, noIndent: true, align: Ali
 const underlined = (text, o = {}) => new Paragraph({ alignment: C, spacing: { before: o.before || 0, after: 0, line: 276 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '000000', space: 1 } }, children: [H.run(text, { bold: o.bold })] });
 // текст с переводами строк (код в вопросах, «Дано / Задание / Результат»): каждая строка — через разрыв строки внутри абзаца
 const ml = (text, o = {}) => String(text).split('\n').flatMap((t, i) => (i ? [new TextRun({ break: 1 }), H.run(t, o)] : [H.run(t, o)]));
-const olistMl = (items, size = 24) => { const ref = H.newListRef(); return items.map(t => new Paragraph({ numbering: { reference: ref, level: 0 }, children: ml(t, { size }), alignment: AlignmentType.JUSTIFIED, spacing: { line: 276 } })); };
+const olistMl = (items, size = 24) => { const ref = H.newListRef(); return items.map(t => new Paragraph({ numbering: { reference: ref, level: 0 }, children: ml(t, { size }), alignment: AlignmentType.LEFT, spacing: { line: 276 } })); };
 const small = t => p(t, { italics: true, size: 20, noIndent: true, align: C, after: 200 });
 
 function buildDocumentUd(ctx) {
@@ -161,6 +161,7 @@ function buildDocumentUd(ctx) {
     p(`Источник: ${vosp.title}.`, { size: 22, noIndent: true, before: 80 }),
     h2('1.3. Распределение часов, отводимых на освоение учебной дисциплины, по семестрам'),
     table(w13, rows13),
+    ...(sumT !== u.T || sumP !== u.P ? [p(`Примечание. Деление часов на теоретические и практические занятия приведено по календарно-тематическому плану (п. 2.2): теоретических ${sumT} ч, практических ${sumP} ч; по учебному плану группы ${pj.group} — теоретических ${u.T} ч, практических ${u.P} ч. Общий объём (${total} ч) совпадает.`, { size: 22, noIndent: true, before: 80 })] : []),
   ];
 
   // ---------- раздел 2 ----------
@@ -322,12 +323,19 @@ function buildDocumentUd(ctx) {
     for (let i = 0; i < half2; i++) { const a = T[i], b = T[i + half2]; r.push(new TableRow({ children: [cell(String(i + 1), w[0], { align: C }), cell(LETTERS[a.answer], w[1], { align: C }), cell(b ? String(i + half2 + 1) : '', w[2], { align: C }), cell(b ? LETTERS[b.answer] : '', w[3], { align: C })] })); }
     return table(w, [hdr(['№ вопроса', 'Ответ', '№ вопроса', 'Ответ'], w), ...r]);
   };
-  const ticket = (label, ex, form) => table([P_W], [new TableRow({ children: [cell([
-    org.short, udTitle, `Специальность ${spec}, группа ${pj.group}, ${label}`, form === 'Э' ? 'ЭКЗАМЕНАЦИОННЫЙ БИЛЕТ № 1' : 'БИЛЕТ № 1',
-    `1. ${ex.questions[0]}`, `2. ${ex.questions[Math.floor(ex.questions.length / 2)]}`, ...`3. Практическое задание: ${ex.tasks[0]}`.split('\n'),
-    'Время на подготовку — 30 минут, на выполнение практического задания — 30 минут.',
-    'Преподаватель ____________ /____________/        Председатель ПЦК ____________ /____________/',
-  ], P_W, { size: 22 })] })]);
+  // билет по структуре макета: шапка, номер билета, вопросы 1–2, практическое задание 3 (без эталона «Результат»), подписи — отдельными строками
+  const ticket = (label, ex, form) => {
+    const task = String(ex.tasks[0]).split('\n').filter(l => !/^Результат:/.test(l));
+    const row = (lines, o = {}) => new TableRow({ children: [cell(lines, P_W, o)] });
+    return table([P_W], [
+      row([org.short, udTitle, `Специальность ${spec}, группа ${pj.group}, ${label}`], { align: C }),
+      row([form === 'Э' ? 'ЭКЗАМЕНАЦИОННЫЙ БИЛЕТ № 1' : 'БИЛЕТ № 1'], { align: C, bold: true, shade: 'F2F2F2' }),
+      row([`1. ${ex.questions[0]}`]), row([`2. ${ex.questions[Math.floor(ex.questions.length / 2)]}`]),
+      row([`3. Практическое задание: ${task[0]}`, ...task.slice(1)]),
+      row(['Время на подготовку — 30 минут, на выполнение практического задания — 30 минут.'], { italics: true }),
+      row(['Преподаватель ____________ /____________/', 'Председатель ПЦК ____________ /____________/']),
+    ]);
+  };
   const w511 = widths(P_W, [32, 0], 1);
   const sub = t => p(t, { bold: true, italics: true, noIndent: true, before: 160, after: 80, keepNext: true });
   const hasKtpCw = allLessons.some(l => /контрольн/i.test(l.title || ''));
@@ -355,7 +363,7 @@ function buildDocumentUd(ctx) {
   u.themes.forEach((t, i) => {
     const T = fos.tests.filter(q => q.t === i + 1);
     if (!T.length) return;
-    f5.push(sub(thNames(i)), ...T.flatMap(q => { qn += 1; return [p(ml(`${qn}. ${q.q}`), { noIndent: true, before: 80, keepNext: true }), p(q.options.map((o, j) => `${LETTERS[j]}) ${o}`).join('    '), { noIndent: true, indent: { left: mm(6) } })]; }));
+    f5.push(sub(thNames(i)), ...T.flatMap(q => { qn += 1; return [p(ml(`${qn}. ${q.q}`), { noIndent: true, align: L, before: 80, keepNext: true }), p(q.options.map((o, j) => `${LETTERS[j]}) ${o}`).join('    '), { noIndent: true, indent: { left: mm(6) } })]; }));
   });
   f5.push(caption('Ключ к тесту'), keyTable(ordered));
   f5.push(h2('5.2. Контрольно-измерительные материалы для проведения промежуточной аттестации'),
@@ -363,7 +371,7 @@ function buildDocumentUd(ctx) {
   if (hasCw) {
     const cw = (fos.control_works || {})[u.code];
     f5.push(p(`Форма — контрольная работа. Работа выполняется письменно, время — ${(cw && cw.minutes) || 90} минут; ${cw ? cw.variants.length : 4} варианта одинаковой сложности.`));
-    if (cw) { cw.variants.forEach((v, i) => f5.push(p(`Вариант ${i + 1}`, { bold: true, noIndent: true, before: 160, keepNext: true }), ...v.tasks.map((t, j) => p(ml(`Задание ${j + 1}. ${t}`), { noIndent: true })))); f5.push(p('Эталоны ответов', { bold: true, noIndent: true, before: 160, keepNext: true }), ...cw.variants.map((v, i) => p(`Вариант ${i + 1}. ${v.answer}`, { noIndent: true }))); }
+    if (cw) { cw.variants.forEach((v, i) => f5.push(p(`Вариант ${i + 1}`, { bold: true, noIndent: true, before: 160, keepNext: true }), ...v.tasks.map((t, j) => p(ml(`Задание ${j + 1}. ${t}`), { noIndent: true, align: L })))); f5.push(p('Эталоны ответов', { bold: true, noIndent: true, before: 160, keepNext: true }), ...cw.variants.map((v, i) => p(`Вариант ${i + 1}. ${v.answer}`, { noIndent: true }))); }
   } else f5.push(p('Контрольная работа как форма промежуточной аттестации учебным планом не предусмотрена.'));
   f5.push(h3('5.2.2. Вопросы к дифференцированному зачёту'));
   if (attOf('ДЗ').length) f5.push(p('Дифференцированный зачёт проводится по билетам: два теоретических вопроса и одно практическое задание.'), ...tickets(attOf('ДЗ'), x => `Вопросы к ${formDat(x.form)}`, x => `Типы практических задач к ${formDat(x.form)}`), caption('Образец билета'), ticket(attOf('ДЗ')[0].label, (fos.exams || {})[attOf('ДЗ')[0].key], 'ДЗ'), caption('Критерии оценки'), examCrit());

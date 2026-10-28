@@ -16,8 +16,8 @@
    "options": [
     "Python",
     "ассемблер",
-    "Java",
-    "Pascal"
+    "Pascal",
+    "Delphi"
    ],
    "answer": 1,
    "t": 2
@@ -61,7 +61,7 @@
     "break",
     "continue",
     "pass",
-    "exit"
+    "return"
    ],
    "answer": 1,
    "t": 4
@@ -193,7 +193,7 @@
     "JE",
     "JMP",
     "LOOP",
-    "CALL"
+    "CMP"
    ],
    "answer": 1,
    "t": 14
