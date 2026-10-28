@@ -160,3 +160,37 @@
             {"num": "", "name": "", "section": "Раздел 2. …", "content": [], "lessons": […]}],
  "course_project": {"hours": 40, "title": "Курсовой проект", "topics": […], "stages": [["Вводное занятие. Закрепление тем.", 2], …]}}
 ```
+
+## Учебная дисциплина (`"kind": "ud"`)
+
+Режим для ОП, ОГСЭ, ЕН, общеобразовательных дисциплин; сборка ПМ он не затрагивает (для `kind` ≠ `ud` всё прежнее). Макет — «РП УД (Топ-50)» ГБПОУ «СПЭТ».
+Команды те же: `new --kind ud`, `init`, `stages`, `next`/`import`/`fill`, `validate`, `lint`, `build`; `python3 tools/check_docx.py` сам узнаёт документ УД.
+
+**Учебный план** — обычная строка дисциплины (`ОП.04 …`) в `data/plans/ГРУППА.tsv`; проверка `python3 tools/check_plan.py план.tsv ОП.04` (суммы, пары по 2 ч).
+
+**КТП** — `data/ktp/ГРУППА_УД.json`, из xlsx преподавателя: `python3 -I tools/ktp_from_xlsx.py ktp.xlsx data/ktp/….json` (`--check` сверяет JSON с xlsx).
+`sections[]{num,name,hours,themes[]{num,name,hours,lessons[]{n,t,h,k:"T"|"P",vid,materials,homework}}}`. Названия занятий дословно.
+
+**ПОП-УД** — `data/pop/КОД_ОП04.json` из приложения 2 к ПОП-П: `python3 -I tools/pop_extract_ud.py приложение2.docx 2.4 ОП.04 out.json`;
+проверка `python3 tools/verify_sources.py out.json приложение2.docx --plan план.tsv --fgos фгос.json` (признак УД — поле `discipline`).
+Поля: `discipline, goal, place, results_intro, results{ok{КОД:{um,zn,nav}},pk{…}}, hours, sections[]{section,hours,themes[]{num,name,content[],labs[]{n,title}}}, assessment[]{kind,results[],criteria[],methods_title,methods[]}, rooms[], literature_main[], literature_add[], _cover, _ack, _notes`.
+Тематика ПОП в документе не используется (занятия — по КТП); ОК и ПК дисциплины — только из `results` ПОП.
+
+**project.json**: `kind:"ud"`, `ud:"ОП.04"` (вместо `pm`), `ktp` (путь к КТП), остальное как у ПМ (`fgos, vospitanie, plan, pop, group, year, org, people, pcc, competence, hints`).
+
+**content.json**:
+```json
+{"meta": {"kind":"ud","code":"ОП.04","name":"…","total_hours":84,"exam_sem":2,"exam_label":"2 курс, 1 семестр","ok":["ОК 01"],"pk":[["ПК 2.3","…"]],
+          "split_note":"подтверждение расхождения деления теория/практика КТП и плана (если есть)"},
+ "ud": {"code":"ОП.04","name":"…","custom":true,"T":34,"P":50,"K":0,
+        "sems":[{"sem":2,"label":"2 курс, 1 семестр","hours":84,"form":"Э"}],
+        "themes":[{"num":"Тема 1.1.","name":"…","section":"Раздел 1. …","content":["перечень дидактических единиц"],"codes":"ОК 01, ОК 02; ПК 2.4",
+                   "lessons":[{"k":"T","t":"название из КТП","h":2},{"k":"P","t":"…","h":2,"hw":"домашнее задание КТП"}]}],
+        "sr":[]},
+ "program": {"conditions":{"equipment":{"cabinet":[],"lab":[]},"software":[]},"lr_methods":{"ОК 01":"…","none":"…"},"control":{"current":"устного опроса, …"},"electronic":[]},
+ "fos": {"tests":[{"q":"…","options":["а","б","в","г"],"answer":1,"t":3}],"exams":{"ОП.04":{"questions":[],"tasks":["Дано: … Задание: … Результат: …"]}},"control_works":{}},
+ "_done":[],"fos._parts":{}}
+```
+`T`/`P` в `ud` — часы из плана; занятия — из КТП (`k` T/P, 2 ч). `content` темы КТП не задаёт — init берёт названия занятий (в COMPLETENESS.md отмечается как составленное). `sr` — как у МДК (СР по плану > 0).
+Этапы (`stages`): `codes` (ОК/ПК по темам), `program` (оснащение, ПО, формы контроля, методы ЛР), `tests:КОД:1…3`, `exams`: `exam:КОД:1…3` (по 20; 60 вопросов, 60 заданий «Дано … Результат …»), `cw:КОД` — только при форме ДР/КР.
+Файл ответа этапа: `answers/` по имени этапа (`:` → `_`). Селфтест `tools/selftest.js` проверяет и проекты УД.

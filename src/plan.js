@@ -3,7 +3,7 @@
 'use strict';
 const fs = require('fs');
 
-const INDEX_RE = /^(СГ|ОП|П|ПМ|МДК|УП|ПП|ПДП|ГИА|ОУД|БД|ПД|ПОО|ОГСЭ|ЕН)(\.\d+)*\.?\s*$/;
+const INDEX_RE = /^(СГ|ОП|П|ПМ|МДК|УП|ПП|ПДП|ГИА|ОУД|ОД|БД|ПД|ПОО|ОГСЭ|ЕН)(\.\d+)*\.?\s*$/;
 const FORM_NAMES = {
   'Э': 'экзамен', 'ДЗ': 'дифференцированный зачёт', 'З': 'зачёт',
   'ДР': 'другая форма контроля (контрольная работа)', 'КР': 'контрольная работа', 'ЭК': 'экзамен квалификационный',
@@ -73,6 +73,13 @@ function moduleFromPlan(plan, pmCode) {
   return { pm: pmEff, mdk, up, pp, lastSem, nSem: plan.nSem };
 }
 
+// Строка учебной дисциплины (ОП.04, ОГСЭ.02, ЕН.01, ОД.01 …) из плана
+function disciplineFromPlan(plan, code) {
+  const it = plan.items.find(i => i.index === code);
+  if (!it) throw new Error(`В учебном плане не найдена дисциплина ${code}`);
+  return it;
+}
+
 function loadPlan(file) { return parsePlanText(fs.readFileSync(file, 'utf8')); }
 
-module.exports = { parsePlanText, loadPlan, moduleFromPlan, semLabel, FORM_NAMES };
+module.exports = { parsePlanText, loadPlan, moduleFromPlan, disciplineFromPlan, semLabel, FORM_NAMES };

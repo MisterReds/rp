@@ -5,7 +5,11 @@
   Максимальная = Самостоятельная + Обязательная; сумма семестров = Обязательная;
   у МДК Обязательная = Теория + Практика + Курсовых; часы МДК и УП чётные, ПП кратны 6;
   сумма семестров ПМ = сумма семестров МДК + УП + ПП; число форм аттестации не больше числа семестров с часами.
-Код выхода 1 — есть ошибки."""
+Код выхода 1 — есть ошибки.
+
+Учебная дисциплина (ОП.04, ОГСЭ.02, ЕН.01, ОД.01, СГ.03 …): python3 tools/check_plan.py data/plans/ГРУППА.tsv ОП.04
+  Максимальная = Самостоятельная + Обязательная; сумма семестров = Обязательная; Обязательная = Теория + Практика + Курсовых;
+  часы по семестрам, теория, практика, курсовые чётные (пары по 2 ч); число форм аттестации не больше числа семестров с часами."""
 import re
 import sys
 
@@ -15,10 +19,46 @@ def num(x):
     return float(x) if re.fullmatch(r'-?\d+(\.\d+)?', x) else (0.0 if x in ('', '-') else None)
 
 
+def check_discipline(path, code):
+    row = None
+    for line in open(path, encoding='utf-8'):
+        c = [x.strip() for x in line.rstrip('\n').split('\t')]
+        if c[0].rstrip('.') == code:
+            row = c
+    if row is None:
+        sys.exit(f'ОШИБКА: в плане нет строки {code}')
+    v = [num(x) for x in row[3:]]
+    if any(x is None for x in v):
+        sys.exit(f'ОШИБКА {code}: нечисловое значение в часах: {row[3:]}')
+    mx, sf, ob, th, pr, kr, *sem = v
+    errs = []
+    if mx != sf + ob:
+        errs.append(f'Максимальная {mx:g} ≠ Самостоятельная {sf:g} + Обязательная {ob:g}')
+    if sum(sem) != ob:
+        errs.append(f'сумма по семестрам {sum(sem):g} ≠ Обязательная {ob:g}')
+    if ob != th + pr + kr:
+        errs.append(f'Обязательная {ob:g} ≠ Теория {th:g} + Практика {pr:g} + Курсовых {kr:g}')
+    for i, h in enumerate(sem):
+        if h % 2:
+            errs.append(f'семестр {i + 1} — {h:g} ч, не делится на пары по 2 ч')
+    if th % 2 or pr % 2 or kr % 2 or sf % 2:
+        errs.append('теория/практика/курсовые/самостоятельная не кратны 2 ч')
+    active = sum(1 for h in sem if h > 0)
+    forms = [f for f in (row[2] or '').split(',') if f.strip()]
+    if len(forms) > max(active, 1):
+        errs.append(f'форм аттестации {len(forms)} («{row[2]}»), а семестров с часами {active}')
+    for e in errs:
+        print(f'ОШИБКА {code}: ' + e)
+    print(f'Дисциплина {code} «{row[1]}»: {ob:g} ч (теория {th:g}, практика {pr:g}, СР {sf:g}), формы «{row[2]}»; ошибок: {len(errs)}')
+    sys.exit(1 if errs else 0)
+
+
 def main():
     if len(sys.argv) < 3:
         sys.exit(__doc__)
     path, pm = sys.argv[1], sys.argv[2]
+    if not pm.startswith('ПМ.'):
+        return check_discipline(path, pm)
     n = pm.replace('ПМ.', '')
     rows = {}
     pdp = []  # преддипломная практика: в плане может входить в строку ПМ, в программу модуля не входит

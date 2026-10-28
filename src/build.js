@@ -57,6 +57,7 @@ function loadProject(projectFile) {
     lit: pj.literature ? JSON.parse(fs.readFileSync(rd(pj.literature), 'utf8')) : null,
     vospPrev: pj.vospitanie_prev ? JSON.parse(fs.readFileSync(rd(pj.vospitanie_prev), 'utf8')) : null,
     pop: pj.pop ? JSON.parse(fs.readFileSync(rd(pj.pop), 'utf8')) : null,
+    ktp: pj.ktp ? JSON.parse(fs.readFileSync(rd(pj.ktp), 'utf8')) : null, // только kind "ud": КТП преподавателя
     plan: loadPlan(rd(pj.plan)),
     contentPath: rd(pj.content || 'content.json'),
     outputPath: rd(pj.output || 'out.docx'),
@@ -712,6 +713,7 @@ function buildDocument(ctx) {
 
 async function build(projectFile, opts = {}) {
   const ctx = loadProject(projectFile);
+  if (ctx.project.kind === 'ud') return require('./build_ud.js').buildUd(ctx, opts); // учебная дисциплина — отдельная сборка
   if (!ctx.content) throw new Error(`Нет файла наполнения ${ctx.contentPath}. Сначала выполните init и fill.`);
   if (!ctx.pop) throw new Error('В project.json не указан файл ПОП (поле "pop").');
   const v = validate(ctx.content, { pop: ctx.pop, plan: ctx.plan });

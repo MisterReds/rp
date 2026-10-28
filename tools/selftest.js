@@ -39,9 +39,47 @@ function answer(id, ref) {
   }
 }
 
+// учебная дисциплина (kind "ud"): каркас из плана + КТП + ПОП → ответы этапов из эталонного content.json → validate/lint → сборка
+async function runUd(ctx, dir) {
+  const { buildSkeletonUd } = require('../src/skeleton_ud.js');
+  const { listStagesUd } = require('../src/stages_ud.js');
+  const { validateUd } = require('../src/validate_ud.js');
+  const { buildDocumentUd } = require('../src/build_ud.js');
+  const ref = ctx.content;
+  const { skeleton, errors } = buildSkeletonUd(ctx.plan, ctx.project, ctx.fgos, ctx.pop, ctx.ktp);
+  if (errors.length) console.log('  замечания init:', errors.join('; '));
+  skeleton.meta.split_note = ref.meta.split_note; // подтверждение расхождения КТП и плана — решение человека
+  ctx.content = skeleton;
+  const P = 20, fails = [];
+  for (const st of listStagesUd(ctx)) {
+    const fresh = listStagesUd(ctx).find(x => x.id === st.id);
+    const [kind, , part] = st.id.split(':'); const k = Number(part) || 1, sl = a => (a || []).slice((k - 1) * P, k * P);
+    let data;
+    if (kind === 'codes') data = { themes: ref.ud.themes.map(t => ({ num: t.num, codes: t.codes })) };
+    else if (kind === 'program') data = { equipment: ref.program.conditions.equipment, software: ref.program.conditions.software, lr_methods: ref.program.lr_methods, control: ref.program.control };
+    else if (kind === 'tests') data = { tests: sl(ref.fos.tests) };
+    else if (kind === 'exam') { const key = Object.keys(ref.fos.exams)[0]; data = { questions: sl(ref.fos.exams[key].questions), tasks: sl(ref.fos.exams[key].tasks) }; }
+    else data = ref.fos.control_works && ref.fos.control_works[ref.ud.code];
+    data = JSON.parse(JSON.stringify(data));
+    fresh.prompt();
+    const e = fresh.check(data);
+    if (e.length) { fails.push(`${st.id}: ${e.slice(0, 3).join('; ')}`); continue; }
+    fresh.apply(data);
+  }
+  const v = validateUd(ctx.content, { pop: ctx.pop, plan: ctx.plan, fgos: ctx.fgos });
+  require('./lint_ud.js').lintUd(ctx.content).errors.forEach(e => v.errors.push('lint: ' + e));
+  const buf = await Packer.toBuffer(buildDocumentUd(ctx).doc);
+  fs.writeFileSync(path.join(os.tmpdir(), `selftest_${path.basename(dir)}.docx`), buf);
+  console.log(`${path.basename(dir)} (учебная дисциплина): этапов ${listStagesUd(ctx).length}, отклонено ответов ${fails.length}, ошибок проверки ${v.errors.length}, документ ${Math.round(buf.length / 1024)} КБ`);
+  fails.forEach(f => console.log('  ответ отклонён:', f));
+  v.errors.slice(0, 10).forEach(e => console.log('  ошибка:', e));
+  return !fails.length && !v.errors.length;
+}
+
 async function run(dir) {
   const pjFile = path.join(dir, 'project.json');
   const ctx = loadProject(pjFile);
+  if (ctx.project.kind === 'ud') return runUd(ctx, dir);
   const ref = ctx.content;
   const { skeleton, errors } = buildSkeleton(ctx.plan, ctx.project, ctx.fgos, ctx.pop);
   if (errors.length) console.log('  замечания init:', errors.join('; '));

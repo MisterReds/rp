@@ -39,6 +39,7 @@
 | Перенос МДК | `mdk-importer.md` | готовая РП с этим МДК | `custom`-МДК в content.json | часы = план, `validate` — 0 |
 | Наполнение РП | `content-writer.md` | каркас content.json | этапы themes, course, up, pp, program | `import` принял каждый этап |
 | ФОС | `fos-writer.md` | content.json после РП | этапы tests, exam, cw, upq, module_exam | `import` принял каждый этап |
+| Дисциплина (УД) | `orchestrator.md`, раздел «Дисциплина» | план, КТП, ПОП-УД, ФГОС, воспитание | `content.json` kind=ud, .docx по макету РП УД | `validate`, `lint`, `check_docx` — 0 ошибок, reviewer: ПРИНЯТО |
 | Проверяющий | `reviewer.md` | .docx, content.json, исходники | `REVIEW.md` | вердикт вынесен |
 
 Параллельно можно: plan-reader, fgos-extractor, vospitanie-extractor; pop-extractor — после fgos-extractor (сверяет коды ПК).
@@ -51,7 +52,7 @@ content-writer — после init; fos-writer — после content-writer (т
 | Уровень | Кто | Что делает |
 |---|---|---|
 | Opus (старшая) | координатор | разбор запроса, соответствия «план ↔ исходник» (какой документ практики к какому семестру), неоднозначности, правки кода `src/`/`tools/`, спорные замечания reviewer, новые форматы исходников (первый разбор) |
-| Sonnet (средняя) | pop-extractor, mdk-importer, content-writer, fos-writer, reviewer | тексты занятий, практик, тестов, билетов; разбор ПОП и готовых РП; независимая проверка |
+| Sonnet (средняя) | pop-extractor, mdk-importer, content-writer, fos-writer, reviewer; наполнение и ФОС дисциплины (`kind: ud`) | тексты занятий, практик, тестов, билетов; разбор ПОП и готовых РП; независимая проверка |
 | Haiku (младшая) | plan-reader, fgos-extractor, vospitanie-extractor; любые механические прогоны | перенос таблиц и перечней, где ошибку ловит проверка (`check_plan`, `verify_sources`); прогоны `validate`/`lint`/`build`/`selftest`; поиск по файлам |
 
 Модель роли закреплена в `.claude/agents/<роль>.md` (`model:`).

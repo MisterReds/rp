@@ -123,4 +123,4 @@ function bannedIn(d) {
   const txt = JSON.stringify(d, (k, v) => (k === 'name' ? undefined : v));
   return BANNED.filter(([re]) => re.test(txt)).map(([re, why]) => `«${txt.match(re)[0]}»: ${why} — убери из ответа`);
 }
-module.exports = { lint, bannedIn, norm, near, dup, LESSON_BAD, VAGUE_OPTION };
+module.exports = { lint, bannedIn, norm, near, dup, LESSON_BAD, VAGUE_OPTION, BANNED };

@@ -135,6 +135,45 @@ def structure_checks(d, fgos, plan_codes):
     return errs
 
 
+def plan_codes_all(path):
+    return {line.split('\t')[0].strip().rstrip('.') for line in open(path, encoding='utf-8')}
+
+
+def ud_structure_checks(d, fgos, plan_codes):
+    """ПОП учебной дисциплины (поле discipline): код есть в плане, номера тем растут, практические занятия, коды ОК/ПК есть во ФГОС."""
+    errs = []
+    ack = set(d.get('_ack', []))
+    code = d.get('discipline')
+    if plan_codes is not None and code not in plan_codes:
+        errs.append(f'дисциплины {code} нет в учебном плане')
+    prev = None
+    for si, s in enumerate(d.get('sections', [])):
+        for ti, t in enumerate(s.get('themes', [])):
+            if not t.get('name') or not t.get('content'):
+                errs.append(f'sections[{si}].themes[{ti}] {t.get("num")}: пустое название или содержание')
+            m = re.search(r'(\d+)\.(\d+)', t.get('num', ''))
+            if m:
+                key = (int(m.group(1)), int(m.group(2)))
+                if prev and key <= prev and f'themes:{t["num"]}' not in ack:
+                    errs.append(f'номер {t["num"]} не больше предыдущего. Если так в ПОП — "_ack": "themes:{t["num"]}"')
+                prev = key
+    labs = [l.get('n') for s in d.get('sections', []) for t in s.get('themes', []) for l in t.get('labs', [])]
+    if not labs:
+        errs.append('ни одного практического занятия')
+    elif sorted(labs) != list(range(min(labs), min(labs) + len(labs))) and f'labs:{code}' not in ack:
+        errs.append(f'номера практических занятий с пропусками или повторами: {labs}. Если так в ПОП — "_ack": "labs:{code}" и пояснение в "_notes"')
+    if fgos:
+        pk = {k for m in fgos.get('modules', []) for k, _ in m.get('pk', [])}
+        okc = {k for k, _ in fgos.get('ok', [])}
+        for kind, known in (('ok', okc), ('pk', pk)):
+            for k in (d.get('results') or {}).get(kind, {}):
+                if k not in known:
+                    errs.append(f'код {k} из ПОП нет во ФГОС')
+    if not (d.get('results') or {}).get('ok'):
+        errs.append('нет таблицы результатов (ОК/ПК)')
+    return errs
+
+
 def fgos_checks(d):
     errs = []
     for k in ('code', 'name', 'qualification', 'order_by', 'order_date', 'minjust'):
@@ -202,6 +241,8 @@ def coverage(src_paths, data, start, end):
                 where = m.group(1)
             t = l[m.end():] if m else l  # строка без номера — продолжение многострочной ячейки
             for cell in dict.fromkeys(re.split(r'\s*\|\s*', t)):
+                if 'discipline' in data:  # ПОП-УД: пункты содержания пронумерованы («1. …», «2 …») — номер в JSON не переносится
+                    cell = re.sub(r'^\d+\.?\s+(?=\D)', '', cell.strip())
                 n = strip_tail(norm(re.sub(r'\(\s*\d+\s*час\w*\s*\)', '', cell)))
                 for c in data.get('_corrections', []):  # задокументированные исправления склеек и опечаток
                     n = n.replace(strip_tail(norm(c['was'])), strip_tail(norm(c['now'])))
@@ -277,7 +318,12 @@ def main():
     for p, s in miss:
         print(f'НЕТ В ИСХОДНИКЕ {p}: {s[:160]}')
     errs = []
-    if 'sections' in data:
+    if 'discipline' in data:
+        fgos = json.load(open(opt['--fgos'], encoding='utf-8')) if '--fgos' in opt else None
+        errs = ud_structure_checks(data, fgos, plan_codes_all(opt['--plan']) if '--plan' in opt else None)
+        for e in errs:
+            print('СТРУКТУРА: ' + e)
+    elif 'sections' in data:
         fgos = json.load(open(opt['--fgos'], encoding='utf-8')) if '--fgos' in opt else None
         errs = structure_checks(data, fgos, plan_mdk_codes(opt['--plan']) if '--plan' in opt else None)
         for e in errs:
