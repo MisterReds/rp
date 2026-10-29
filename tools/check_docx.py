@@ -44,13 +44,16 @@ def check_ud(text, full, low, errs, checks, n_lr):
         errs.append('нет п. 2.2 или раздела 3')
         return finish(errs, checks, 'Учебная дисциплина')
     block = text[i22:i3]
-    pw, les = [], []
+    pw, les, sr = [], [], 0
     for t in block:
         pw += [int(x) for x in re.findall(r'Практическая работа № (\d+)', t)]
         cells = re.split(r'\s*\|\s*', t)
         # строка занятия: «Тема … | N. название | 2 | …»; строки содержания темы («1. …» внутри ячейки) часов «2» рядом не имеют
         if len(cells) >= 3 and re.match(r'^\d+\. \S', cells[1]) and cells[2].strip() == '2':
             les.append(int(cells[1].split('.')[0]))
+        # самостоятельная работа (СР по плану > 0): строка «Самостоятельная работа обучающихся: | N» — часы входят в «Всего»
+        if len(cells) >= 3 and cells[1].startswith('Самостоятельная работа обучающихся:') and cells[2].strip().isdigit():
+            sr += int(cells[2])
     if les != list(range(1, len(les) + 1)):
         errs.append(f'нумерация занятий в п. 2.2 сбита: {les[:50]}')
     if pw != list(range(1, len(pw) + 1)):
@@ -60,8 +63,8 @@ def check_ud(text, full, low, errs, checks, n_lr):
     if tot is None:
         errs.append('нет строки «Всего по …» в п. 2.2')
     else:
-        if tot != 2 * len(les):
-            errs.append(f'«Всего» {tot} ч, а занятий {len(les)} × 2 ч = {2 * len(les)} ч')
+        if tot != 2 * len(les) + sr:
+            errs.append(f'«Всего» {tot} ч, а занятий {len(les)} × 2 ч = {2 * len(les)} ч' + (f' и самостоятельной работы {sr} ч' if sr else ''))
         m21 = re.search(r'Объем образовательной программы \| (\d+)', full)
         if not m21 or int(m21.group(1)) != tot:
             errs.append(f'п. 2.1: объём {m21.group(1) if m21 else "не найден"} ч ≠ {tot} ч')

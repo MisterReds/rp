@@ -118,9 +118,13 @@ function buildDocumentUd(ctx) {
   { const rest = P_W - wR[0]; const k = wR.length - 1; for (let i = 1; i < wR.length; i++) wR[i] = i < wR.length - 1 ? Math.floor(rest / k) : rest - Math.floor(rest / k) * (k - 1); }
   const listCell = (items, w) => cell((items || []).map((t, i, a) => t.replace(/[;.]\s*$/, '') + (i === a.length - 1 ? '.' : ';')), w);
   const resRow = (k, name, r) => new TableRow({ children: [cell(`${k}. ${name}`, wR[0]), listCell(r.um, wR[1]), listCell(r.zn, wR[2]), ...(hasNav ? [listCell(r.nav, wR[3])] : [])] });
+  // ПОП, где одна строка таблицы результатов относится сразу к нескольким кодам (pop.results_shared): одна строка с общими умениями и знаниями
+  const resRowShared = (codes, r) => new TableRow({ children: [cell(codes.map(([k, n]) => cp(`${k}. ${n}`)), wR[0]), listCell(r.um, wR[1]), listCell(r.zn, wR[2]), ...(hasNav ? [listCell(r.nav, wR[3])] : [])] });
   const resultsTable = table(wR, [hdr(['Код и расшифровка ОК, ПК', 'Умения', 'Знания', ...(hasNav ? ['Владеть навыками'] : [])], wR),
-    ...OK.map(([k, n]) => resRow(k, n, pop.results.ok[k] || {})),
-    ...PK.map(([k, n]) => resRow(k, n, pop.results.pk[k] || {}))]);
+    ...(pop.results_shared
+      ? [resRowShared([...OK, ...PK], (OK.length ? pop.results.ok[OK[0][0]] : pop.results.pk[PK[0][0]]) || {})]
+      : [...OK.map(([k, n]) => resRow(k, n, pop.results.ok[k] || {})),
+        ...PK.map(([k, n]) => resRow(k, n, pop.results.pk[k] || {}))])]);
 
   // 1.3 распределение часов по семестрам (макет: 8 столбцов семестров)
   const lastSem = Math.max(...u.sems.map(s => s.sem), meta.exam_sem);
@@ -229,8 +233,9 @@ function buildDocumentUd(ctx) {
   ];
 
   // ---------- раздел 3 ----------
-  const cabName = ((pop.rooms.find(r => /Кабинет/.test(r)) || '').match(/«([^»]+)»/) || [])[1] || '';
-  const labName = ((pop.rooms.find(r => /Лаборатор/.test(r)) || '').match(/^Лаборатори[а-я]*\s+(.+?),?\s+оснащ/) || [])[1] || '';
+  const cabRoom = pop.rooms.find(r => /Кабинет/.test(r)) || '';
+  const cabName = (cabRoom.match(/«([^»]+)»/) || cabRoom.match(/^Кабинет\S*\s+(.+?),?\s+оснащ/) || [])[1] || '';
+  const labName = (((pop.rooms.find(r => /Лаборатор/.test(r)) || '').match(/^Лаборатори[а-я]*\s+(.+?),?\s+оснащ/) || [])[1] || '').replace(/[«»]/g, '');
   const eq = (prog.conditions || {}).equipment || {};
   const lit = pop.literature_main || [];
   const litAdd = pop.literature_add || [];
@@ -307,7 +312,7 @@ function buildDocumentUd(ctx) {
   // ---------- раздел 5: ФОС ----------
   const crit5 = rows => simpleTable(widths(P_W, [45, 0], 1), ['Оценка', 'Критерий'], rows);
   const prCrit = crit5([
-    ['5 «отлично»', 'Работа выполнена полностью, программа запускается и даёт верный результат на всех тестовых данных, код оформлен по стандарту кодирования, на контрольные вопросы даны полные ответы'],
+    ['5 «отлично»', prog.pr_criteria5 || 'Работа выполнена полностью, программа запускается и даёт верный результат на всех тестовых данных, код оформлен по стандарту кодирования, на контрольные вопросы даны полные ответы'],
     ['4 «хорошо»', 'Работа выполнена полностью, допущены 1–2 несущественные ошибки или недочёты в оформлении, исправленные после замечания'],
     ['3 «удовлетворительно»', 'Работа выполнена не менее чем на 60 %, основной результат достигнут, ответы на вопросы неполные'],
     ['2 «неудовлетворительно»', 'Работа выполнена менее чем на 60 % или результат не достигнут']]);
@@ -355,7 +360,7 @@ function buildDocumentUd(ctx) {
     h3('5.1.3. Контрольные работы'),
     p(hasKtpCw ? 'Контрольные работы проводятся по календарно-тематическому плану (п. 2.2).' : 'Контрольные работы календарно-тематическим планом (п. 2.2) не предусмотрены.'),
     h3('5.1.4. Тестирование'),
-    p(`Тестирование проводится по завершении изучения тем в электронной среде (СДО Moodle) или на бланке; время — 1 минута на вопрос. Каждое задание имеет один правильный ответ и оценивается в 1 балл. Всего в банке — ${fos.tests.length} вопросов; обучающемуся выдаётся выборка по темам.`),
+    p(`Тестирование проводится по завершении изучения тем ${prog.test_where || 'в электронной среде (СДО Moodle) или на бланке'}; время — 1 минута на вопрос. Каждое задание имеет один правильный ответ и оценивается в 1 балл. Всего в банке — ${fos.tests.length} вопросов; обучающемуся выдаётся выборка по темам.`),
     caption('Шкала оценки тестирования'), testScale];
   const thNames = i => `${u.themes[i].num} ${(u.themes[i].name || '').replace(/\.\s*$/, '')}`.trim();
   let qn = 0;

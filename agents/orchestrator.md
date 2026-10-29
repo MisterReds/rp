@@ -107,5 +107,6 @@ node src/cli.js build P
    ПОП → `python3 -I tools/pop_extract_ud.py приложение2.docx 2.N ОП.0N data/pop/….json` и `verify_sources.py … --plan … --fgos …` — 0 расхождений (`pop-extractor`).
 2. `node src/cli.js new папка --kind ud --plan … --ud ОП.04 --pop … --ktp …` → реквизиты в project.json → `init`. Прочитай замечания `init` целиком: расхождение КТП и плана (часы, деление теория/практика) — стоп, вопрос человеку; до ответа деление идёт по КТП и подтверждается в `meta.split_note`.
 3. Наполнение (`content-writer`, `fos-writer`, Sonnet): этапы `codes`, `program`, `tests:КОД:1…3`, `exam:КОД:1…3` через `next`/`import`. Результаты кода и задач вычислять выполнением, а не в уме.
+   Нет КТП преподавателя: `python3 -I tools/ktp_from_pop.py ПОП.json план.tsv ОП.01 data/ktp/….json --spec …` строит КТП из ПОП (занятия составлены нами, `_generated`) — вместо `ktp_from_xlsx.py`; в COMPLETENESS.md и в ответе человеку это отмечается, при получении КТП — заменить.
 4. `validate` → `lint` → `build` → `python3 tools/check_docx.py документ.docx` → `reviewer`.
 5. В примере — `COMPLETENESS.md`: «есть в КТП / есть в РП», «есть в макете / есть в РП», что составлено нами (содержание тем, коды ОК/ПК по темам, оснащение, ФОС). Не уместившееся в макет (материалы и ДЗ КТП) — человеку в ответ.

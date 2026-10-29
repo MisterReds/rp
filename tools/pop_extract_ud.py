@@ -66,8 +66,13 @@ def code_norm(s):
     return None
 
 
+PER_PARA = False  # --item-per-paragraph: каждый абзац ячейки — отдельный пункт (ПООП «Профессионалитет»)
+
+
 def items(paras):
     """Пункты ячейки. Пункты в ПОП заканчиваются «;» — абзац без «;» в конце (кроме последнего) продолжается следующим."""
+    if PER_PARA:
+        return [x.strip().rstrip(';').strip() for x in paras if x.strip()]
     out, cur = [], ''
     for p in paras:
         p = p.strip()
@@ -86,6 +91,10 @@ def strip_num(s):
 
 
 def main():
+    global PER_PARA
+    if '--item-per-paragraph' in sys.argv:
+        PER_PARA = True
+        sys.argv.remove('--item-per-paragraph')
     if len(sys.argv) < 5:
         sys.exit(__doc__)
     src, app, code, out_path = sys.argv[1:5]
@@ -145,10 +154,9 @@ def main():
                 mode = None; continue
             if mode == 'rooms' and 'оснащ' in low:
                 out['rooms'].append(t)
-            elif mode == 'lit_main' and re.match(r'^\d+\.', t):
-                out['literature_main'].append(strip_num(t))
-            elif mode == 'lit_add' and re.match(r'^\d+\.', t):
-                out['literature_add'].append(strip_num(t))
+            elif mode in ('lit_main', 'lit_add') and (re.match(r'^\d+\.\s', t) or len(t) > 60):
+                # список может быть без нумерации (ПООП «Профессионалитет») — тогда пункт — абзац целиком
+                out['literature_main' if mode == 'lit_main' else 'literature_add'].append(strip_num(t) if re.match(r'^\d+\.\s', t) else t)
             continue
 
         rows = rows_of(x)
@@ -163,11 +171,15 @@ def main():
         if head0.startswith('Код ОК, ПК') and 'Уметь' in head_all:
             for r in rows[1:]:
                 c0 = col(r, 0)
-                cd = code_norm(c0[0]) if c0 else None
-                if not cd:
+                cds = [code_norm(z) for z in re.split(r'[,;]', ' '.join(c0 or []))]
+                cds = [z for z in cds if z]
+                if not cds:
                     continue
                 vals = [items(col(r, j) or []) for j in (1, 2, 3)]
-                out['results']['ok' if cd.startswith('ОК') else 'pk'][cd] = {'um': vals[0], 'zn': vals[1], 'nav': vals[2]}
+                if len(cds) > 1:  # одна строка таблицы на несколько кодов: результаты общие для всех кодов строки
+                    out['results_shared'] = True
+                for cd in cds:
+                    out['results']['ok' if cd.startswith('ОК') else 'pk'][cd] = {'um': vals[0], 'zn': vals[1], 'nav': vals[2]}
             continue
         if head0.startswith('Наименование составных частей'):
             for r in rows[1:]:
@@ -187,6 +199,7 @@ def main():
             continue
         if head0.startswith('Наименование разделов и тем'):
             sec = theme = None
+            in_labs = False
             for r in rows[1:]:
                 if not r:
                     continue
@@ -206,9 +219,24 @@ def main():
                         num += '.'
                     theme = {'num': num, 'name': ' '.join([m.group(2)] + c0[1:]).strip(), 'content': [], 'labs': []}
                     sec['themes'].append(theme)
+                    in_labs = False
                 elif c0:
                     continue
                 if theme is None:
+                    continue
+                if rest and rest[0].startswith('В том числе самостоятельная'):
+                    in_labs = False
+                    continue
+                if rest and rest[0].startswith('В том числе практических'):
+                    in_labs = True
+                    continue
+                if rest and rest[0].startswith('Содержание'):
+                    in_labs = False
+                if in_labs and rest and not re.match(r'^(Лабораторн\w*|Практическ\w*)\s+(работ\w*|заняти\w*)\s*№', rest[0]):
+                    # практическое занятие без номера в ПОП: номер — по порядку следования
+                    n_lab = 1 + sum(len(t['labs']) for sct in out['sections'] for t in sct['themes'])
+                    theme['labs'].append({'n': n_lab, 'title': rest[0].strip()})
+                    out['_numbered_by_order'] = True
                     continue
                 for ptxt in rest:
                     if re.match(r'^[\d\s/*-]+$', ptxt) or re.match(r'^(ОК|ПК)[\s.]*\d', ptxt):
@@ -226,6 +254,8 @@ def main():
     if len(set(labs)) != len(labs):
         out['_ack'].append(f'labs:{code}')
         out['_notes'].append(f'В ПОП номера практических занятий повторяются или идут с пропусками ({labs}) — оставлены как в ПОП.')
+    if out.pop('_numbered_by_order', False):
+        out['_notes'].append('В ПОП практические и лабораторные занятия не пронумерованы — номера в JSON присвоены по порядку следования в тематическом плане (1, 2, 3 …); в рабочей программе номера практических работ сквозные по занятиям.')
     nums = [re.findall(r'\d+', t['num']) for sct in out['sections'] for t in sct['themes']]
     out['_notes'].append('Раздел 4 ПОП: «Примеры форм и методов контроля и оценки» — примеры, не обязательный перечень; рабочая программа использует подходящие из них.')
     with open(out_path, 'w', encoding='utf-8') as f:
