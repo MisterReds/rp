@@ -47,7 +47,7 @@ function validateUd(content, opts = {}) {
   (u.themes || []).forEach((th, k) => {
     const tp = `${code} → ${th.num || ''} «${th.name || '?'}»`;
     if (!nonEmpty(th.num) || !nonEmpty(th.name)) E(`${tp}: у темы нет номера или названия`);
-    if (!nonEmpty(th.section)) E(`${tp}: нет раздела (section)`);
+    if (!nonEmpty(th.section) && (u.themes || []).some(t => nonEmpty(t.section))) E(`${tp}: нет раздела (section)`); // ПООП СПО без разделов: section пусто у всех тем
     if (!Array.isArray(th.content) || !th.content.length || th.content.some(x => !nonEmpty(x))) E(`${tp}: нет содержания темы (перечня дидактических единиц)`);
     if (!Array.isArray(th.lessons) || !th.lessons.length) E(`${tp}: в теме нет занятий`);
     (th.lessons || []).forEach((l, i) => {
@@ -72,8 +72,10 @@ function validateUd(content, opts = {}) {
       if (cmp(th.name) !== cmp(x.name)) E(`${code} → ${th.num}: название темы не совпадает с ПОП «${x.name}»`);
       if (JSON.stringify((th.content || []).map(cmp)) !== JSON.stringify(x.content.map(cmp))) E(`${code} → ${th.num}: содержание темы не дословно из ПОП (абзацев ${(th.content || []).length}, в ПОП ${x.content.length}); перенос — абзацы ПОП по порядку, без пересказа`);
       const all = cmp(x.content.join(' '));
-      (th.lessons || []).filter(l => l.k === 'T').forEach(l => l.t.split(/;\s*/).forEach(fr => { if (fr && !all.includes(cmp(fr))) E(`${code} → ${th.num}: название занятия «${fr}» — не фрагмент содержания ПОП`); }));
-      const cov = cmp((th.lessons || []).filter(l => l.k === 'T').map(l => l.t).join(' '));
+      // занятие с названием из КТП преподавателя (src: 'ktp') — не фрагмент содержания; пункты содержания, которые оно охватывает, перечислены в covers (дословно из ПОП)
+      (th.lessons || []).filter(l => l.k === 'T' && l.src !== 'ktp').forEach(l => l.t.split(/;\s*/).forEach(fr => { if (fr && !all.includes(cmp(fr))) E(`${code} → ${th.num}: название занятия «${fr}» — не фрагмент содержания ПОП`); }));
+      (th.lessons || []).filter(l => l.src === 'ktp').forEach(l => (l.covers || []).forEach(cv => { if (!x.content.some(c => cmp(c) === cmp(cv))) E(`${code} → ${th.num}: «${cv}» (covers занятия «${l.t}») — нет в содержании ПОП`); }));
+      const cov = cmp((th.lessons || []).filter(l => l.k === 'T').map(l => [l.t, ...(l.covers || [])].join(' ')).join(' '));
       const lost = x.content.join(' ').split(/(?<=\.)\s+(?=[А-ЯЁ])/).map(cmp).filter(z => z && !cov.includes(cmp(z).replace(/\.$/, '')));
       if (lost.length) E(`${code} → ${th.num}: фрагмент содержания ПОП не охвачен занятиями: «${lost[0].slice(0, 70)}»`);
     });
@@ -127,7 +129,8 @@ function validateUd(content, opts = {}) {
   // оснащение и методы ЛР
   const pr = content.program || {};
   const eq = (pr.conditions || {}).equipment || {};
-  if (!(eq.cabinet || []).length) E('program.conditions.equipment.cabinet: пусто');
+  const popHasCabinet = !pop || (pop.rooms || []).some(r => /Кабинет/.test(r)); // ПООП СПО ОП.04: только лаборатория
+  if (!(eq.cabinet || []).length && popHasCabinet) E('program.conditions.equipment.cabinet: пусто');
   if (!(eq.lab || []).length) W('program.conditions.equipment.lab: пусто — в 3.1 не будет оснащения лаборатории');
   if (!((pr.conditions || {}).software || []).length) W('program.conditions.software: пусто');
   okList.forEach(k => { if (!nonEmpty((pr.lr_methods || {})[k])) E(`program.lr_methods["${k}"]: нет методов формирования ЛР (п. 4.2)`); });

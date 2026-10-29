@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from doc2text import read_lines  # noqa: E402
 
 # поля, которые не обязаны дословно встречаться в исходнике (служебные или собранные программой)
-SKIP_KEYS = {'_source', '_comment', '_notes', '_ack', '_corrections', '_cover', '_source_doc', '_excluded', 'format', 'qualification', 'pm', 'specialty', 'vd', 'mdk', 'num', 'n', 'mdk_title_pop',
+SKIP_KEYS = {'_source', '_source_kind', '_ok_map', '_comment', '_notes', '_ack', '_corrections', '_cover', '_source_doc', '_excluded', 'format', 'qualification', 'pm', 'specialty', 'vd', 'mdk', 'num', 'n', 'mdk_title_pop',
              'vd_name', 'results_intro', 'source_url', 'ok_source', 'ok_results_source', 'order', 'order_by', 'order_date', 'minjust', 'code',
              'professional_area', 'professional_standards', 'title', 'source_table', 'ok_lr', 'ok_lr_module', 'hours',
              'course_hours', 'name_short', 'qualification_short'}
@@ -194,7 +194,7 @@ def fgos_checks(d):
     return errs
 
 
-COVER_IGNORE = re.compile(r'^(дополнительно для квалификаци.*|\d+([.,]\d+)?|\d+\s*/\s*\d+|примерная тематика.*|\*|содержание.*|в том числе.*|тематика.*|самостоятельная.*|всего.*|'
+COVER_IGNORE = re.compile(r'^(дополнительно для квалификаци.*|\(\d+\)|\d+([.,]\d+)?|\d+\s*/\s*\d+|примерная тематика.*|\*|содержание.*|в том числе.*|тематика.*|самостоятельная.*|всего.*|'
                           r'промежуточная.*|учебная практика.*|производственная практика.*|виды работ.*|курсов.*|наименование.*|'
                           r'уровень.*|объем.*|коды.*|раздел модуля \d+.*|(ок|пк)\.?\s*\d+(\.\d+)?(\s*[-–]\s*(ок|пк)?\.?\s*\d+(\.\d+)?)?\.?|раздел \d+\.?|тема \d+(\.\d+)*\.?|мдк\.?\s*\d+\.\d+\.?)$')
 

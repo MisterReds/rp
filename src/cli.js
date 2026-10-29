@@ -112,7 +112,8 @@ async function main() {
     console.log(`  ${u.code} «${u.name}»: ${skeleton.meta.total_hours} ч по плану (теория ${u.T} ч, практика ${u.P} ч); семестры: ` + u.sems.map(s => `${s.label} — ${s.hours} ч${s.form ? ` (${s.form})` : ''}`).join(', '));
     u.themes.forEach(t => console.log(`     ${t.num} ${t.name}: занятий ${t.lessons.length} (${t.lessons.reduce((a, l) => a + l.h, 0)} ч)`));
     console.log(`  ОК из ПОП: ${skeleton.meta.ok.join(', ')}; ПК: ${skeleton.meta.pk.map(x => x[0]).join(', ') || 'нет'}`);
-    if (ctx.ktp && ctx.ktp._generated) console.log('  ! КТП преподавателя отсутствует — занятия составлены нами по ПОП и плану; заменить при получении КТП (отметить в COMPLETENESS.md)');
+    if (ctx.ktp && ctx.ktp._generated && ctx.ktp.ktp_used) console.log(`  КТП составлена по ПООП и плану; названия занятий — из КТП преподавателя (${ctx.ktp.ktp_used.length} из ${ctx.ktp.ktp_used.length + (ctx.ktp.ktp_unused || []).length}), порядок и число пар — наши (отметить в COMPLETENESS.md)`);
+    else if (ctx.ktp && ctx.ktp._generated) console.log('  ! КТП преподавателя отсутствует — занятия составлены нами по ПОП и плану; заменить при получении КТП (отметить в COMPLETENESS.md)');
     if (errors.length) { console.log('\nЗамечания:'); errors.forEach(e => console.log('  ! ' + e)); }
     console.log(`\nДалее: rpgen next ${projectFile}   (этапы: codes, program, tests, exam)`);
     return;

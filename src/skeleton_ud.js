@@ -33,7 +33,7 @@ function buildSkeletonUd(plan, project, fgos, pop, ktp) {
   const themes = [];
   if (ktp) {
     ktp.sections.forEach(sec => sec.themes.forEach(t => {
-      const lessons = t.lessons.map(l => ({ k: l.k, t: l.t, h: l.h, ...(l.homework && l.homework !== '-' ? { hw: l.homework } : {}), ...(l.materials && l.materials !== '-' ? { mat: l.materials } : {}) }));
+      const lessons = t.lessons.map(l => ({ k: l.k, t: l.t, h: l.h, ...(l.homework && l.homework !== '-' ? { hw: l.homework } : {}), ...(l.materials && l.materials !== '-' ? { mat: l.materials } : {}), ...(l.src ? { src: l.src, ktp_n: l.ktp_n } : {}), ...(l.covers ? { covers: l.covers } : {}) }));
       // КТП составлена по ПОП (нет КТП преподавателя): содержание и название темы — дословно из ПОП
       const pt = ktp._generated && pop ? pop.sections.flatMap(x => x.themes).find(x => x.num === t.num) : null;
       themes.push({ num: t.num, name: pt ? pt.name : t.name, section: sec.name, content: pt ? pt.content.slice() : contentFromLessons(lessons), codes: '', lessons });
@@ -59,7 +59,9 @@ function buildSkeletonUd(plan, project, fgos, pop, ktp) {
         exam_label: sems.length ? sems[sems.length - 1].label : '', n_sem: plan.nSem,
         ok: okPop.length ? okPop : okAll, pk: pkPop,
       },
-      ...(ktp && ktp._generated ? { _notes: ['КТП преподавателя отсутствует — занятия составлены нами по ПОП и плану (tools/ktp_from_pop.py); заменить при получении КТП.'] } : {}),
+      ...(ktp && ktp._generated ? { _notes: [ktp.ktp_used
+        ? `КТП составлена по ПООП и поручению (tools/ktp_from_pop.py, spec): темы, содержание и практические работы — ПООП; названия занятий — из КТП преподавателя (${ktp.ktp_used.length} из ${ktp.ktp_used.length + (ktp.ktp_unused || []).length}) там, где тема совпадает с ПООП, иначе из ПООП; порядок и число пар составлены нами.`
+        : 'КТП преподавателя отсутствует — занятия составлены нами по ПОП и плану (tools/ktp_from_pop.py); заменить при получении КТП.'] } : {}),
       ud: { code, name: it.name, custom: true, T: it.theory, P: it.practice, K: it.course, plan_self: it.self, sems, themes },
       program: { conditions: { equipment: {}, software: [] }, lr_methods: {} },
       fos: { tests: [], exams: {} },

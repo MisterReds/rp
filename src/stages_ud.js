@@ -63,7 +63,7 @@ function listStagesUd(ctx) {
     check: d => {
       const e = [];
       const eq = d.equipment || {};
-      if (!(eq.cabinet || []).length) e.push('equipment.cabinet: пусто');
+      if (!(eq.cabinet || []).length && (ctx.pop.rooms || []).some(r => /Кабинет/.test(r))) e.push('equipment.cabinet: пусто'); // ПООП СПО ОП.04: только лаборатория
       if (!(eq.lab || []).length) e.push('equipment.lab: нужно оснащение лаборатории под практические занятия');
       if (!(d.software || []).length) e.push('software: пусто');
       okList.forEach(k => { if (!nonEmpty((d.lr_methods || {})[k])) e.push(`lr_methods["${k}"]: пусто`); });

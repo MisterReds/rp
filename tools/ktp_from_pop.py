@@ -11,6 +11,15 @@
   названия теоретических занятий — предложения содержания темы по кругу.
   --spec: {"theory": {"Тема 1.1.": ["название занятия", …], …}, "works": {"1": 2, "2": 2, …}}  — названия занятий и пары на работу (по номеру работы ПОП);
   суммы пар проверяются по плану (теория/практика), числа теорий по темам задают число пар.
+  --spec с ключом "lessons" (ПООП СПО: темы и работы — ПООП, названия занятий — по возможности из КТП преподавателя):
+    {"teacher_ktp": "data/ktp/ГРУППА_УД_teacher.json", "lessons": {"Тема 1.": [
+        {"k": "T", "ktp": 1, "covers": ["пункты содержания ПООП, которые занятие охватывает (дословно)"]},   # название — из КТП преподавателя по номеру занятия
+        {"k": "T", "t": "фрагменты содержания ПООП через «; »"},                                             # название — из ПООП
+        {"k": "P", "work": 1, "ktp": 11},                                      # пара 2 ч: «Название работы ПООП: название занятия КТП»
+        {"k": "P", "work": 4, "pairs": 3}                                       # работа ПООП без аналога в КТП: pairs пар, сборка делит на «(часть k)»
+    ]}}
+  Занятия, взятые из КТП, получают "src": "ktp", "ktp_n" (номер в КТП) и "covers"; суммы часов теории и практики проверяются по плану,
+  каждая работа ПООП должна встретиться в своей теме. Файл помечается "_generated": true (часть названий — из ПООП, порядок и число пар — наши).
 Практическая работа на несколько пар записывается одним занятием h = 2·пар: сборка сама делит её на пары «(часть 1)», «(часть 2)».
 Последняя пара ДЗ/З — в сборке (src/sequence.js); экзамен (Э) в часы занятий не входит.
 Признак "_generated" заставляет init и COMPLETENESS.md отметить: КТП преподавателя отсутствует — занятия составлены нами, заменить при получении КТП.
@@ -44,6 +53,83 @@ def plan_row(path, code):
     sys.exit(f'В плане нет {code}')
 
 
+def build_explicit(pop, row, th_h, pr_h, themes, spec, out_p, plan_p, pop_p):
+    teacher = {}
+    if spec.get('teacher_ktp'):
+        tk = json.load(open(spec['teacher_ktp'], encoding='utf-8'))
+        teacher = {l['n']: l for sec in tk['sections'] for t in sec['themes'] for l in t['lessons']}
+    out = {'_source': f'КТП составлена по ПООП ({pop_p}) и плану ({plan_p}); названия занятий взяты из КТП преподавателя ({spec.get("teacher_ktp")}) там, где тема совпадает с темой ПООП, иначе из ПООП; порядок и число пар — наши',
+           '_generated': True, 'title': row[1], 'sections': []}
+    n = 0
+    used_works, used_ktp, errs = [], [], []
+    for s in pop['sections']:
+        m = re.match(r'^(Раздел\s*\d+)', s['section'])
+        sec = {'num': (m.group(1) + '.') if m else '', 'name': s['section'], 'hours': 0, 'themes': []}
+        for t in s['themes']:
+            spec_l = spec['lessons'].get(t['num'])
+            if not spec_l:
+                errs.append(f'в spec нет занятий темы {t["num"]}')
+                continue
+            labs = {l['n']: l for l in t['labs']}
+            ls = []
+            for it in spec_l:
+                n += 1
+                k = it['k']
+                tl = teacher.get(it['ktp']) if it.get('ktp') else None
+                if it.get('ktp'):
+                    if tl is None:
+                        errs.append(f'в КТП преподавателя нет занятия {it["ktp"]}')
+                        continue
+                    if tl['k'] != k:
+                        errs.append(f'занятие КТП {it["ktp"]} — {tl["k"]}, в spec — {k}')
+                    used_ktp.append(it['ktp'])
+                if k == 'T':
+                    rec = {'n': n, 't': tl['t'] if tl else it['t'], 'h': 2, 'k': 'T', 'vid': 'Лекция', 'materials': '-', 'homework': '-'}
+                else:
+                    w = labs.get(it['work'])
+                    if w is None:
+                        errs.append(f'работа {it["work"]} не относится к теме {t["num"]}')
+                        continue
+                    used_works.append(it['work'])
+                    title = w['title'].rstrip('.')
+                    rec = {'n': n, 't': f'{title}: {tl["t"]}' if tl else title, 'h': 2 * it.get('pairs', 1), 'k': 'P', 'vid': 'Практ. работа', 'materials': '-', 'homework': tl.get('homework', '-') if tl else '-'}
+                if tl:
+                    rec['src'] = 'ktp'
+                    rec['ktp_n'] = it['ktp']
+                    rec['materials'] = tl.get('materials', '-')
+                    if tl.get('homework') and k == 'T':
+                        rec['homework'] = tl['homework']
+                if it.get('covers'):
+                    rec['covers'] = it['covers']
+                ls.append(rec)
+            th = {'num': t['num'], 'name': t['name'], 'hours': sum(l['h'] for l in ls), 'lessons': ls}
+            sec['themes'].append(th)
+            sec['hours'] += th['hours']
+        out['sections'].append(sec)
+    all_labs = [l['n'] for _, t in themes for l in t['labs']]
+    for w in all_labs:
+        if w not in used_works:
+            errs.append(f'работа ПООП № {w} не вошла в КТП')
+    if len(used_ktp) != len(set(used_ktp)):
+        errs.append('занятие КТП преподавателя использовано дважды')
+    T = sum(l['h'] for sec in out['sections'] for t in sec['themes'] for l in t['lessons'] if l['k'] == 'T')
+    P = sum(l['h'] for sec in out['sections'] for t in sec['themes'] for l in t['lessons'] if l['k'] == 'P')
+    if T != th_h:
+        errs.append(f'Теория: {T} ч, по плану {th_h} ч')
+    if P != pr_h:
+        errs.append(f'Практика: {P} ч, по плану {pr_h} ч')
+    if errs:
+        sys.exit('\n'.join(errs))
+    out['hours'] = T + P
+    out['lessons_count'] = out['hours'] // 2
+    out['theory_hours'] = th_h
+    out['practice_hours'] = pr_h
+    out['ktp_used'] = sorted(used_ktp)
+    out['ktp_unused'] = sorted(set(teacher) - set(used_ktp))
+    json.dump(out, open(out_p, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+    print(f'Записано: {out_p}: тем {len(themes)}, часов {out["hours"]} (теория {T}, практика {P}); занятий КТП преподавателя использовано {len(used_ktp)} из {len(teacher)}')
+
+
 def main():
     a = sys.argv[1:]
     spec = {}
@@ -58,6 +144,8 @@ def main():
     row = plan_row(plan_p, code)
     th_h, pr_h = int(float(row[6])), int(float(row[7]))
     themes = [(s, t) for s in pop['sections'] for t in s['themes']]
+    if spec.get('lessons'):
+        return build_explicit(pop, row, th_h, pr_h, themes, spec, out_p, plan_p, pop_p)
     # теория
     if spec.get('theory'):
         titles = {t['num']: spec['theory'][t['num']] for _, t in themes}
