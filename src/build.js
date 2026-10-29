@@ -78,10 +78,11 @@ function buildDocument(ctx) {
   const OK_CODES = OK.map(x => x[0]);
   const okAllStr = okStr(OK_CODES);
   const LR = vosp.lr;
-  const okLr = { ...vosp.ok_lr, ...(pj.ok_lr_override || {}) };
-  const LR_ALL = Object.keys(LR).map(Number).sort((a, b) => a - b);
-  const lrFromOk = oks => uniq(oks.flatMap(o => okLr[o] || [])).sort((a, b) => a - b);
-  const lrOf = (m, oks) => (m.lr && m.lr.length ? m.lr : lrFromOk(oks));
+  const okLr = require('./lr.js').okLrOf(vosp, pj);
+  const lrFromOk = oks => uniq(oks.flatMap(o => okLr[o] || [])).filter(n => LR[n]).sort((a, b) => a - b);
+  // ЛР документа — только соответствующие ОК модуля/дисциплины (Таблица 3 программы воспитания): объединение ok_lr по ОК, по возрастанию
+  const LR_ALL = require('./lr.js').lrSet(OK_CODES, okLr, LR);
+  const lrOf = (m, oks) => { const own = (m.lr || []).filter(n => LR_ALL.includes(n)); return own.length ? own : lrFromOk(oks); };
   const lrStr = arr => (arr.length ? 'ЛР ' + ranges(arr) : '');
   // ПМ, шедший и в прошлом учебном году: перед ЛР текущего года — ЛР прошлого (project.json: vospitanie_prev)
   const curYear = ((vosp.title || '').match(/(\d{4})\s*[–-]\s*(\d{4})/) || []).slice(1, 3).join('/');
@@ -484,7 +485,7 @@ function buildDocument(ctx) {
   const w42 = widths(P_W, [22, 0, 70], 1);
   const lrRows = LR_ALL.map(n => {
     const oks = OK_CODES.filter(o => (okLr[o] || []).includes(n));
-    const meth = oks.length ? oks.map(o => `${o}: ${lrMeth[o] || ''}`) : [lrMeth.none || ''];
+    const meth = oks.map(o => `${o}: ${lrMeth[o] || ''}`);
     return new TableRow({ children: [cell('ЛР ' + n, w42[0]), cell(LR[n], w42[1]), cell(meth, w42[2])] });
   });
   const sec4 = [

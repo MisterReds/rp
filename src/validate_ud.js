@@ -130,7 +130,7 @@ function validateUd(content, opts = {}) {
   if (!(eq.cabinet || []).length) E('program.conditions.equipment.cabinet: пусто');
   if (!(eq.lab || []).length) W('program.conditions.equipment.lab: пусто — в 3.1 не будет оснащения лаборатории');
   if (!((pr.conditions || {}).software || []).length) W('program.conditions.software: пусто');
-  [...okList, 'none'].forEach(k => { if (!nonEmpty((pr.lr_methods || {})[k])) E(`program.lr_methods["${k}"]: нет методов формирования ЛР (п. 4.2)`); });
+  okList.forEach(k => { if (!nonEmpty((pr.lr_methods || {})[k])) E(`program.lr_methods["${k}"]: нет методов формирования ЛР (п. 4.2)`); });
   if (!nonEmpty((pr.control || {}).current)) W('program.control.current: нет перечня форм текущего контроля — будет типовой текст');
 
   // ФОС

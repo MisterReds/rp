@@ -154,7 +154,7 @@ function listStages(ctx) {
       const eq = d.equipment || {};
       if (!(eq.cabinet || []).length) e.push('equipment.cabinet: пусто');
       if (!(eq.lab || []).length && !(eq.workshop || []).length) e.push('equipment.lab / equipment.workshop: нужно оснащение лаборатории или мастерской');
-      [...okList, 'none'].forEach(k => { if (!nonEmpty((d.lr_methods || {})[k])) e.push(`lr_methods["${k}"]: пусто`); });
+      okList.forEach(k => { if (!nonEmpty((d.lr_methods || {})[k])) e.push(`lr_methods["${k}"]: пусто`); });
       return e;
     },
     apply: d => { c.program.conditions = { equipment: d.equipment, software: d.software || [] }; c.program.lr_methods = d.lr_methods; },

@@ -66,7 +66,7 @@ function listStagesUd(ctx) {
       if (!(eq.cabinet || []).length) e.push('equipment.cabinet: пусто');
       if (!(eq.lab || []).length) e.push('equipment.lab: нужно оснащение лаборатории под практические занятия');
       if (!(d.software || []).length) e.push('software: пусто');
-      [...okList, 'none'].forEach(k => { if (!nonEmpty((d.lr_methods || {})[k])) e.push(`lr_methods["${k}"]: пусто`); });
+      okList.forEach(k => { if (!nonEmpty((d.lr_methods || {})[k])) e.push(`lr_methods["${k}"]: пусто`); });
       if (!nonEmpty((d.control || {}).current)) e.push('control.current: нужна фраза о формах текущего контроля');
       return e;
     },

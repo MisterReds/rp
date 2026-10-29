@@ -191,6 +191,9 @@ async function main() {
     const v = isUd(ctx) ? validateUd(ctx.content, { pop: ctx.pop, plan: ctx.plan, fgos: ctx.fgos }) : validate(ctx.content, { pop: ctx.pop, plan: ctx.plan });
     v.errors.forEach(e => console.log('ОШИБКА: ' + e));
     v.warnings.forEach(w => console.log('предупреждение: ' + w));
+    const lrs = require('./lr.js').moduleLr(ctx);
+    ctx.content.mdk && ctx.content.mdk.forEach(m => { const x = (m.lr || []).filter(n => !lrs.includes(n)); if (x.length) console.log(`предупреждение: ${m.code}: lr ${x.join(', ')} не соответствуют ОК модуля — в документ не выводятся`); });
+    console.log(`ЛР документа (${lrs.length}, по ОК модуля): ${lrs.join(', ')}`);
     console.log(v.errors.length ? `Итого ошибок: ${v.errors.length}` : 'Ошибок нет.');
     process.exitCode = v.errors.length ? 1 : 0;
     return;

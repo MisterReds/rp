@@ -63,9 +63,10 @@ function buildDocumentUd(ctx) {
   const OK_CODES = OK.map(x => x[0]);
   const PK = meta.pk;
   const LR = vosp.lr;
-  const okLr = { ...vosp.ok_lr, ...(pj.ok_lr_override || {}) };
-  const LR_ALL = Object.keys(LR).map(Number).sort((a, b) => a - b);
-  const lrFromOk = oks => uniq(oks.flatMap(o => okLr[o] || [])).sort((a, b) => a - b);
+  const okLr = require('./lr.js').okLrOf(vosp, pj);
+  const lrFromOk = oks => uniq(oks.flatMap(o => okLr[o] || [])).filter(n => LR[n]).sort((a, b) => a - b);
+  // ЛР документа — только соответствующие ОК модуля/дисциплины (Таблица 3 программы воспитания): объединение ok_lr по ОК, по возрастанию
+  const LR_ALL = require('./lr.js').lrSet(OK_CODES, okLr, LR);
   const lrStr = arr => (arr.length ? 'ЛР ' + ranges(arr) : '');
   const codesBlock = (pk, ok, lr) => [okStr(ok), pkStr(pk), lrStr(lr)].filter(Boolean);
   const themeCodes = th => parseCodes(th.codes);
@@ -289,7 +290,7 @@ function buildDocumentUd(ctx) {
   const w42 = widths(P_W, [22, 0, 70], 1);
   const lrRows = LR_ALL.map(n => {
     const oks = OK_CODES.filter(o => (okLr[o] || []).includes(n));
-    const meth = oks.length ? oks.map(o => `${o}: ${lrMeth[o] || ''}`) : [lrMeth.none || ''];
+    const meth = oks.map(o => `${o}: ${lrMeth[o] || ''}`);
     return new TableRow({ children: [cell('ЛР ' + n, w42[0]), cell(LR[n], w42[1]), cell(meth, w42[2])] });
   });
   const attWhat = forms.length ? forms.map(f => formNom(f)).join(', ') : 'не предусмотрена';
