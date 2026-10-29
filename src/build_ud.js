@@ -354,7 +354,7 @@ function buildDocumentUd(ctx) {
   const f5 = [h1('5. Фонд оценочных средств'),
     h2('5.1. Контрольно-измерительные материалы для проведения текущего контроля'),
     h3('5.1.1. Перечень практических работ'),
-    ...(practical.length ? [table(w511, [hdr(['№ практической работы', 'Тема практической работы'], w511), ...practical.map(l => new TableRow({ children: [cell(String(l.pw), w511[0], { align: C }), cell(pairTitle(l), w511[1])] }))]),
+    ...(practical.length ? [table(w511, [hdr(['№ практической работы', 'Тема практической работы'], w511), ...practical.map(l => new TableRow({ children: [cell(l.nopoop ? 'занятие ' + l.pw : String(l.pw), w511[0], { align: C }), cell(pairTitle(l), w511[1])] }))]),
       caption('Критерии оценки практической работы'), prCrit] : [p('Практические работы календарно-тематическим планом не предусмотрены.')]),
     h3('5.1.2. Перечень самостоятельных внеаудиторных работ'),
     ...(hasSr ? [table(w511, [hdr(['№ самостоятельной внеаудиторной работы', 'Задание СВР в соответствии с п. 2.2 КТП'], w511), ...(u.sr || []).flatMap(e => (srTasks(e).length ? srTasks(e).map(x => x[0]) : [e.intro || 'Самостоятельная работа']).map(t => t)).map((t, i) => new TableRow({ children: [cell(String(i + 1), w511[0], { align: C }), cell(t, w511[1])] }))])]

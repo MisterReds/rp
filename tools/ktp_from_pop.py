@@ -86,6 +86,14 @@ def build_explicit(pop, row, th_h, pr_h, themes, spec, out_p, plan_p, pop_p):
                 if k == 'T':
                     rec = {'n': n, 't': tl['t'] if tl else it['t'], 'h': 2, 'k': 'T', 'vid': 'Лекция', 'materials': '-', 'homework': '-'}
                 else:
+                    if it.get('work') is None:  # занятие КТП, которого нет в перечне работ ПООП: название КТП дословно, без подписи работой ПООП
+                        if tl is None:
+                            errs.append('занятие без work должно иметь ktp')
+                            continue
+                        rec = {'n': n, 't': tl['t'], 'h': 2, 'k': 'P', 'vid': 'Практ. занятие', 'materials': tl.get('materials', '-'), 'homework': tl.get('homework', '-'), 'nopoop': True}
+                        rec['src'] = 'ktp'; rec['ktp_n'] = it['ktp']
+                        ls.append(rec)
+                        continue
                     w = labs.get(it['work'])
                     if w is None:
                         errs.append(f'работы {it["work"]} нет в ПООП')

@@ -33,7 +33,7 @@ function buildSkeletonUd(plan, project, fgos, pop, ktp) {
   const themes = [];
   if (ktp) {
     ktp.sections.forEach(sec => sec.themes.forEach(t => {
-      const lessons = t.lessons.map(l => ({ k: l.k, t: l.t, h: l.h, ...(l.homework && l.homework !== '-' ? { hw: l.homework } : {}), ...(l.materials && l.materials !== '-' ? { mat: l.materials } : {}), ...(l.src ? { src: l.src, ktp_n: l.ktp_n } : {}), ...(l.covers ? { covers: l.covers } : {}) }));
+      const lessons = t.lessons.map(l => ({ k: l.k, t: l.t, h: l.h, ...(l.homework && l.homework !== '-' ? { hw: l.homework } : {}), ...(l.materials && l.materials !== '-' ? { mat: l.materials } : {}), ...(l.src ? { src: l.src, ktp_n: l.ktp_n } : {}), ...(l.covers ? { covers: l.covers } : {}), ...(l.nopoop ? { nopoop: true } : {}) }));
       // КТП составлена по ПОП (нет КТП преподавателя): содержание и название темы — дословно из ПОП
       const pt = ktp._generated && pop ? pop.sections.flatMap(x => x.themes).find(x => x.num === t.num) : null;
       themes.push({ num: t.num, name: pt ? pt.name : t.name, section: sec.name, content: pt ? pt.content.slice() : contentFromLessons(lessons), codes: '', lessons });

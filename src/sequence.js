@@ -28,7 +28,7 @@ function themeLessons(th) {
       const k = Math.max(1, (l.h || LESSON) / LESSON);
       for (let j = 1; j <= k; j++) {
         if (l.k === 'T') out.push({ kind: 'T', title: l.t, att: !!l.att });
-        else out.push({ kind: 'P', n: `${th.num || th.name || 'x'}#${i}`, title: l.t, part: j, parts: k, ...(l.att ? { att: true } : {}) });
+        else out.push({ kind: 'P', n: `${th.num || th.name || 'x'}#${i}`, title: l.t, part: j, parts: k, ...(l.att ? { att: true } : {}), ...(l.nopoop ? { nopoop: true } : {}) });
       }
     });
     return out;
@@ -58,7 +58,8 @@ function mdkBlocks(m) {
   const att = attSems(m);
   // каждая практическая пара — отдельная практическая работа со своим номером (сквозной внутри МДК)
   let pw = 0;
-  seq.forEach(l => { if (l.kind === 'P') l.pw = ++pw; });
+  let pz = 0; // занятия КТП, которых нет в перечне работ ПООП (nopoop), нумеруются отдельно: «Практическое занятие № N»
+  seq.forEach(l => { if (l.kind === 'P') { if (l.nopoop) l.pw = ++pz; else l.pw = ++pw; } });
   let k = 0;
   let num = 0;
   const blocks = (m.sems || []).map(s => {
@@ -95,7 +96,7 @@ const srTasks = e => (e.tasks || []).map(t => (Array.isArray(t) ? [t[0], Number(
 
 // Подпись практического занятия: «Практическая работа № N. Название (часть k)»
 function practiceLabel(l) {
-  return `Практическая работа № ${l.pw}. ${pairTitle(l)}`;
+  return `${l.nopoop ? 'Практическое занятие' : 'Практическая работа'} № ${l.pw}. ${pairTitle(l)}`; // nopoop — занятие КТП, которого нет в перечне работ ПООП
 }
 
 function pairTitle(l) {
