@@ -62,6 +62,22 @@ function validateUd(content, opts = {}) {
     c.pk.forEach(x => { if (!pkList.includes(x)) E(`${tp}: ${x} не относится к дисциплине (${pkList.join(', ')})`); });
     if (k && u.themes[k - 1].section !== th.section && u.themes.slice(0, k - 1).some(t => t.section === th.section)) E(`${tp}: темы раздела «${th.section}» идут не подряд`);
   });
+  // КТП составлена по ПОП (meta.content_from_pop): название и содержание тем — дословно из ПОП, ни один абзац не потерян, названия теоретических занятий — фрагменты содержания
+  if (meta.content_from_pop && pop) {
+    const pt = pop.sections.flatMap(x => x.themes);
+    const cmp = s => String(s).replace(/\s+/g, ' ').trim();
+    (u.themes || []).forEach(th => {
+      const x = pt.find(y => y.num === th.num);
+      if (!x) { E(`${code} → ${th.num}: темы нет в ПОП`); return; }
+      if (cmp(th.name) !== cmp(x.name)) E(`${code} → ${th.num}: название темы не совпадает с ПОП «${x.name}»`);
+      if (JSON.stringify((th.content || []).map(cmp)) !== JSON.stringify(x.content.map(cmp))) E(`${code} → ${th.num}: содержание темы не дословно из ПОП (абзацев ${(th.content || []).length}, в ПОП ${x.content.length}); перенос — абзацы ПОП по порядку, без пересказа`);
+      const all = cmp(x.content.join(' '));
+      (th.lessons || []).filter(l => l.k === 'T').forEach(l => l.t.split(/;\s*/).forEach(fr => { if (fr && !all.includes(cmp(fr))) E(`${code} → ${th.num}: название занятия «${fr}» — не фрагмент содержания ПОП`); }));
+      const cov = cmp((th.lessons || []).filter(l => l.k === 'T').map(l => l.t).join(' '));
+      const lost = x.content.join(' ').split(/(?<=\.)\s+(?=[А-ЯЁ])/).map(cmp).filter(z => z && !cov.includes(cmp(z).replace(/\.$/, '')));
+      if (lost.length) E(`${code} → ${th.num}: фрагмент содержания ПОП не охвачен занятиями: «${lost[0].slice(0, 70)}»`);
+    });
+  }
   const dup = titles.filter((x, i) => titles.indexOf(x) !== i);
   if (dup.length) W(`${code}: повторяются названия занятий: ${[...new Set(dup)].slice(0, 5).join('; ')}`);
   const attSem = (u.sems || []).filter(s => ATT.includes(s.form));

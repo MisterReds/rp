@@ -34,7 +34,9 @@ function buildSkeletonUd(plan, project, fgos, pop, ktp) {
   if (ktp) {
     ktp.sections.forEach(sec => sec.themes.forEach(t => {
       const lessons = t.lessons.map(l => ({ k: l.k, t: l.t, h: l.h, ...(l.homework && l.homework !== '-' ? { hw: l.homework } : {}), ...(l.materials && l.materials !== '-' ? { mat: l.materials } : {}) }));
-      themes.push({ num: t.num, name: t.name, section: sec.name, content: contentFromLessons(lessons), codes: '', lessons });
+      // КТП составлена по ПОП (нет КТП преподавателя): содержание и название темы — дословно из ПОП
+      const pt = ktp._generated && pop ? pop.sections.flatMap(x => x.themes).find(x => x.num === t.num) : null;
+      themes.push({ num: t.num, name: pt ? pt.name : t.name, section: sec.name, content: pt ? pt.content.slice() : contentFromLessons(lessons), codes: '', lessons });
     }));
     const kh = themes.reduce((a, t) => a + t.lessons.reduce((b, l) => b + l.h, 0), 0);
     const kT = themes.reduce((a, t) => a + t.lessons.filter(l => l.k === 'T').reduce((b, l) => b + l.h, 0), 0);
@@ -53,7 +55,7 @@ function buildSkeletonUd(plan, project, fgos, pop, ktp) {
     skeleton: {
       _info: 'Каркас сгенерирован по учебному плану, КТП и ПОП (режим «учебная дисциплина»). Часы, названия и порядок занятий из КТП, результаты и тексты ПОП не менять: их проверяет валидатор.',
       meta: {
-        kind: 'ud', code, name: it.name, total_hours: total, exam_sem: sems.length ? sems[sems.length - 1].sem : 0,
+        kind: 'ud', code, name: it.name, ...(ktp && ktp._generated ? { content_from_pop: true } : {}), total_hours: total, exam_sem: sems.length ? sems[sems.length - 1].sem : 0,
         exam_label: sems.length ? sems[sems.length - 1].label : '', n_sem: plan.nSem,
         ok: okPop.length ? okPop : okAll, pk: pkPop,
       },

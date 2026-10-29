@@ -100,7 +100,7 @@ def main():
             if not T:
                 for w in W:
                     add('P', w['title'].rstrip('.'), 2 * pairs[w['n']], 'Практ. работа')
-            th = {'num': t['num'], 'name': t['name'].rstrip('.'), 'hours': sum(l['h'] for l in ls), 'lessons': ls}
+            th = {'num': t['num'], 'name': t['name'], 'hours': sum(l['h'] for l in ls), 'lessons': ls}
             sec['themes'].append(th)
             sec['hours'] += th['hours']
         out['sections'].append(sec)
