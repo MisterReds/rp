@@ -70,7 +70,7 @@ def build_explicit(pop, row, th_h, pr_h, themes, spec, out_p, plan_p, pop_p):
             if not spec_l:
                 errs.append(f'в spec нет занятий темы {t["num"]}')
                 continue
-            labs = {l['n']: l for l in t['labs']}
+            labs = {l['n']: l for _, tt in themes for l in tt['labs']}  # работа ПООП может продолжаться в следующей теме
             ls = []
             for it in spec_l:
                 n += 1
@@ -88,7 +88,7 @@ def build_explicit(pop, row, th_h, pr_h, themes, spec, out_p, plan_p, pop_p):
                 else:
                     w = labs.get(it['work'])
                     if w is None:
-                        errs.append(f'работа {it["work"]} не относится к теме {t["num"]}')
+                        errs.append(f'работы {it["work"]} нет в ПООП')
                         continue
                     used_works.append(it['work'])
                     title = w['title'].rstrip('.')

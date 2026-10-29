@@ -115,7 +115,8 @@ function buildDocumentUd(ctx) {
   // ---------- раздел 1 ----------
   const w2 = widths(P_W, [25, 0], 1);
   const hasNav = Object.values((pop.results || {}).ok || {}).concat(Object.values((pop.results || {}).pk || {})).some(x => (x.nav || []).length);
-  const wR = hasNav ? widths(P_W, [34, 0, 0, 0], 1) : widths(P_W, [34, 0, 0], 1);
+  const wideFirst = pop._source_kind === 'poop_spo'; // ПООП СПО: одна общая строка с кодами и расшифровкой ОК/ПК — первый столбец шире
+  const wR = hasNav ? widths(P_W, [34, 0, 0, 0], 1) : widths(P_W, [wideFirst ? 56 : 34, 0, 0], 1);
   { const rest = P_W - wR[0]; const k = wR.length - 1; for (let i = 1; i < wR.length; i++) wR[i] = i < wR.length - 1 ? Math.floor(rest / k) : rest - Math.floor(rest / k) * (k - 1); }
   const listCell = (items, w) => cell((items || []).map((t, i, a) => t.replace(/[;.]\s*$/, '') + (i === a.length - 1 ? '.' : ';')), w);
   const resRow = (k, name, r) => new TableRow({ children: [cell(`${k}. ${name}`, wR[0]), listCell(r.um, wR[1]), listCell(r.zn, wR[2]), ...(hasNav ? [listCell(r.nav, wR[3])] : [])] });
