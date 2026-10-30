@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 """Проверка готового .docx — независимо от content.json (для роли reviewer).
-Использование: python3 tools/check_docx.py out/РП_….docx [--lr 52]
+Использование: python3 tools/check_docx.py out/РП_….docx [--lr 6 | --lr 15,38,39,40,41,47]
 Проверяет по тексту документа:
   - нет запрещённого: портфолио, WorldSkills, «Цифровые инструменты», «установлены учебным планом», заглушки;
   - в КТП каждого МДК (2.2.N) практические работы пронумерованы 1, 2, 3 … без пропусков и повторов,
     строки занятий пронумерованы 1, 2, 3 …;
   - «Всего по МДК» в КТП равно часам МДК в п. 1.2;
   - в производственной практике нет зачёта/аттестации, если в 4.1 сказано, что она не проводится;
-  - в 1.1.4 перечислены все ЛР (по умолчанию 52, --lr N);
+  - ЛР — только соответствующие ОК модуля/дисциплины (Таблица 3 программы воспитания 2026–2027): набор в 1.1.4 (в УД — п. 1.2)
+    совпадает с набором в 4.2 (в УД — Таблица 4), других ЛР нет нигде в тексте (в т. ч. в оценочных листах и КТП).
+    --lr 6 — число ЛР модуля; --lr 15,38,39,40,41,47 (или 38-41,47) — точный список. Без --lr проверяется только согласованность.
+    ЛР прошлого года («(2025/2026 учебный год):», таблицы перед текущими) допускаются и не учитываются;
   - есть разделы 1–5 и ФОС.
+Учебная дисциплина (в документе «Рабочая программа УЧЕБНОЙ ДИСЦИПЛИНЫ») проверяется отдельным набором: то же запрещённое, нумерация
+занятий и практических работ в п. 2.2 сквозная, «Всего по <код>» = «Объем образовательной программы» (п. 2.1) = итог п. 1.3,
+ЛР — как выше (п. 1.2, Таблица 4), форма аттестации конкретна, есть разделы 1–5, в ФОС — тест с ключом, вопросы и задания «Дано … Результат …».
 Выводит ОШИБКИ и ПРОВЕРЬ (места для человека: [Ф. И. О.], [проверить], ______). Код 1 — есть ошибки."""
 import os
 import re
@@ -25,13 +31,163 @@ BANNED = [(r'портфолио', 'портфолио'), (r'world\s*skills|во�
           (r'lorem|todo|\?\?\?', 'заглушка')]
 
 
+def finish(errs, checks, label):
+    for e in errs:
+        print('ОШИБКА: ' + e)
+    for c in checks:
+        print('ПРОВЕРЬ: ' + c)
+    print(f'{label}; ошибок: {len(errs)}; мест для человека: {len(checks)}')
+    sys.exit(1 if errs else 0)
+
+
+PREV_RX = re.compile(r'^\(\d{4}/\d{4} учебный год\):')
+
+
+def parse_lr_arg(v):
+    """'6' -> (None, 6); '15,38-41,47' -> ({15,38,39,40,41,47}, n)."""
+    if re.fullmatch(r'\d+', v):
+        return None, int(v)
+    out = set()
+    for part in re.split(r'\s*,\s*', v.strip()):
+        m = re.fullmatch(r'(\d+)\s*[–-]\s*(\d+)', part)
+        out |= set(range(int(m.group(1)), int(m.group(2)) + 1)) if m else {int(part)}
+    return out, len(out)
+
+
+def lr_rows(text, a, b):
+    """(текущие ЛР, ЛР прошлого года, индексы строк блока прошлого года) в text[a:b]."""
+    last = max([i for i in range(a, b) if PREV_RX.match(text[i])] or [-1])
+    cur_from = last + 1 if last >= 0 else a
+    first = min([i for i in range(a, b) if PREV_RX.match(text[i])] or [b])
+    num = lambda r: {int(x) for i in r for x in re.findall(r'^ЛР\s*(\d+)', text[i])}
+    return num(range(cur_from, b)), num(range(a, cur_from)), set(range(first, cur_from)) if last >= 0 else set()
+
+
+def expand_lr(s):
+    out = set()
+    for part in re.split(r'\s*,\s*', s.strip(' ,')):
+        m = re.fullmatch(r'(\d+)\s*[–-]\s*(\d+)', part)
+        if m:
+            out |= set(range(int(m.group(1)), int(m.group(2)) + 1))
+        elif part.isdigit():
+            out.add(int(part))
+    return out
+
+
+def check_lr(text, errs, lr_arg, ud):
+    """ЛР документа — только соответствующие ОК (по Таблице 3 программы воспитания)."""
+    need, n = lr_arg if lr_arg else (None, None)
+    if ud:
+        a1 = next((i for i, t in enumerate(text) if t.startswith('1.2.')), None)
+        b1 = next((i for i, t in enumerate(text) if t.startswith('1.3.')), None)
+        a2 = next((i for i, t in enumerate(text) if t.startswith('Таблица 4')), None)
+        n1, n2 = 'п. 1.2', 'Таблица 4'
+    else:
+        a1 = next((i for i, t in enumerate(text) if t.startswith('1.1.4.')), None)
+        b1 = next((i for i, t in enumerate(text) if re.match(r'^1\.2\.', t) and i > (a1 or 0)), None)
+        a2 = next((i for i, t in enumerate(text) if t.startswith('4.2.')), None)
+        n1, n2 = '1.1.4', 'п. 4.2'
+    if a1 is None or b1 is None:
+        errs.append(f'нет {n1} (личностные результаты)')
+        return
+    if a2 is None:
+        errs.append(f'нет {n2} (контроль формирования ЛР)')
+        return
+    s1, _, skip1 = lr_rows(text, a1, b1)
+    sec5 = next((i for i in range(a2 + 1, len(text)) if re.match(r'^5\. Фонд', text[i], re.I)), len(text))
+    s2, _, skip2 = lr_rows(text, a2, sec5)
+    if not s1:
+        errs.append(f'{n1}: нет ЛР')
+    if s1 != s2:
+        errs.append(f'{n1} и {n2}: наборы ЛР различаются (только в {n1}: {sorted(s1 - s2)}, только в {n2}: {sorted(s2 - s1)})')
+    if need is not None and s1 != need:
+        errs.append(f'{n1}: нет ЛР {sorted(need - s1)}, лишние ЛР {sorted(s1 - need)} (нужны ровно ЛР {sorted(need)})')
+    if n is not None and len(s1) != n:
+        errs.append(f'{n1}: ЛР {len(s1)}, нужно {n}')
+    allowed = need if need is not None else s1
+    bad = {}
+    for i, t in enumerate(text):
+        if i in skip1 or i in skip2:
+            continue
+        for m in re.finditer(r'ЛР\s*(\d[\d,\s–-]*)', t):
+            for x in expand_lr(m.group(1)):
+                if x not in allowed:
+                    bad.setdefault(x, t[:80])
+    if bad:
+        errs.append('ЛР вне набора модуля встречаются в тексте: ' + '; '.join(f'ЛР {k} («{v}…»)' for k, v in sorted(bad.items())[:8]))
+
+
+def check_ud(text, full, low, errs, checks, n_lr):
+    i22 = next((i for i, t in enumerate(text) if t.startswith('2.2. Тематический план')), None)
+    i3 = next((i for i, t in enumerate(text) if t.upper().startswith('3. УСЛОВИЯ')), None)
+    if i22 is None or i3 is None:
+        errs.append('нет п. 2.2 или раздела 3')
+        return finish(errs, checks, 'Учебная дисциплина')
+    block = text[i22:i3]
+    pw, les, sr = [], [], 0
+    for t in block:
+        pw += [int(x) for x in re.findall(r'Практическая работа № (\d+)', t)]
+        cells = re.split(r'\s*\|\s*', t)
+        # строка занятия: «Тема … | N. название | 2 | …»; строки содержания темы («1. …» внутри ячейки) часов «2» рядом не имеют
+        if len(cells) >= 3 and re.match(r'^\d+\. \S', cells[1]) and cells[2].strip() == '2':
+            les.append(int(cells[1].split('.')[0]))
+        # самостоятельная работа (СР по плану > 0): строка «Самостоятельная работа обучающихся: | N» — часы входят в «Всего»
+        if len(cells) >= 3 and cells[1].startswith('Самостоятельная работа обучающихся:') and cells[2].strip().isdigit():
+            sr += int(cells[2])
+    if les != list(range(1, len(les) + 1)):
+        errs.append(f'нумерация занятий в п. 2.2 сбита: {les[:50]}')
+    if pw != list(range(1, len(pw) + 1)):
+        errs.append(f'номера практических работ {pw[:50]} — нужно 1, 2, 3 … без пропусков и повторов')
+    m = re.search(r'^Всего по (\S+) \| (\d+)', '\n'.join(block), re.M)
+    tot = int(m.group(2)) if m else None
+    if tot is None:
+        errs.append('нет строки «Всего по …» в п. 2.2')
+    else:
+        if tot != 2 * len(les) + sr:
+            errs.append(f'«Всего» {tot} ч, а занятий {len(les)} × 2 ч = {2 * len(les)} ч' + (f' и самостоятельной работы {sr} ч' if sr else ''))
+        m21 = re.search(r'Объем образовательной программы \| (\d+)', full)
+        if not m21 or int(m21.group(1)) != tot:
+            errs.append(f'п. 2.1: объём {m21.group(1) if m21 else "не найден"} ч ≠ {tot} ч')
+        m13 = re.search(r'^УД [^|]*\|[^\n]*?\| (\d+)\s*$', full, re.M)
+        if m13 and int(m13.group(1)) != tot:
+            errs.append(f'п. 1.3: всего {m13.group(1)} ч ≠ {tot} ч')
+    check_lr(text, errs, n_lr, True)
+    if not re.search(r'в форме (экзамена|дифференцированного зач[её]та|зач[её]та|контрольной работы) \(\d курс, \d семестр\)', low):
+        errs.append('форма промежуточной аттестации не конкретна (нужно «в форме экзамена (2 курс, 1 семестр)»)')
+    for sec in ('1. ', '2. ', '3. ', '4. ', '5. '):
+        if not any(t.upper().startswith(sec) and len(t) < 160 for t in text):
+            errs.append(f'нет раздела «{sec.strip()}»')
+    for h in ('5.1.1.', '5.1.4.', '5.2.3.', '5.2.4.'):
+        if not any(t.startswith(h) for t in text):
+            errs.append(f'ФОС: нет п. {h}')
+    i514 = next((i for i, t in enumerate(text) if t.startswith('5.1.4.')), None)
+    i52 = next((i for i, t in enumerate(text) if t.startswith('5.2.')), None)
+    if i514 is not None and i52 is not None:
+        nq = len([t for t in text[i514:i52] if re.match(r'^\d+\. ', t)])
+        if nq < 60:
+            errs.append(f'ФОС: в тесте {nq} вопросов, нужно не меньше 60')
+        if not any(t.startswith('Ключ') for t in text[i514:i52]):
+            errs.append('ФОС: нет ключа к тесту')
+    ndano = len(re.findall(r'(?m)^Дано: ', full))
+    if ndano < 60:
+        errs.append(f'ФОС: заданий «Дано … Результат …» {ndano}, нужно не меньше 60 (без образца билета)')
+    for bad in ('undefined', 'null', 'NaN', '[object Object]'):
+        if re.search(r'(?<![\w-])' + re.escape(bad) + r'(?![\w-])', full):
+            errs.append(f'в тексте «{bad}» — не подставились данные')
+    for rx, why in [(r'\[Ф\. ?И\. ?О\.[^\]]*\]', 'не заполнены Ф. И. О.'), (r'\[проверить[^\]]*\]', 'пометки [проверить]'), (r'_{4,}', 'пустые поля ____')]:
+        n = len(re.findall(rx, full))
+        if n:
+            checks.append(f'{why}: {n}')
+    finish(errs, checks, f'Учебная дисциплина: занятий {len(les)}, практических работ {len(pw)}')
+
+
 def main():
     a = sys.argv[1:]
     if not a:
         sys.exit(__doc__)
-    n_lr = 52
+    n_lr = None
     if '--lr' in a:
-        i = a.index('--lr'); n_lr = int(a[i + 1]); del a[i:i + 2]
+        i = a.index('--lr'); n_lr = parse_lr_arg(a[i + 1]); del a[i:i + 2]
     lines = read_lines(a[0])
     text = [re.sub(r'^\[[^\]]*\]\s*', '', l) for l in lines]
     errs, checks = [], []
@@ -41,6 +197,9 @@ def main():
         for m in re.finditer(rx, low):
             ctx = full[max(0, m.start() - 60):m.end() + 60].replace('\n', ' ')
             errs.append(f'{why}: «…{ctx}…»')
+
+    if re.search(r'Рабочая программа УЧЕБНОЙ ДИСЦИПЛИНЫ', full):
+        return check_ud(text, full, low, errs, checks, n_lr)
 
     # КТП МДК
     starts = [i for i, t in enumerate(text) if re.match(r'^2\.2\.\d+\. Календарно-тематический план.*(МДК\.\d+\.\d+)', t)]
@@ -73,23 +232,20 @@ def main():
     if pp is not None and re.search(r'производственн\w+ практик\w+[^.\n]*(не проводится|отч[её]т по практике)', low):
         end = next((i for i in range(pp + 1, len(text)) if re.match(r'^(2\.2\.\d+\.|3\. )', text[i])), len(text))
         for t in text[pp:end]:
-            if re.search(r'зач[её]т|аттестаци', t.lower()):
+            if re.search(r'зач[её]т|промежуточн\w* аттестаци|итогов\w* аттестаци|аттестаци\w* в форме|аттестаци\w* по (?:практик|пп)', t.lower()):
                 errs.append(f'производственная практика: «{t[:120]}» — зачёт/аттестация не проводится')
 
     # ЛР
-    i114 = next((i for i, t in enumerate(text) if t.startswith('1.1.4.')), None)
-    if i114 is None:
-        errs.append('нет п. 1.1.4 (личностные результаты)')
-    else:
-        end = next((i for i in range(i114 + 1, len(text)) if re.match(r'^1\.2\.', text[i])), len(text))
-        lr = sorted({int(x) for t in text[i114:end] for x in re.findall(r'^ЛР\s*(\d+)', t)})
-        if lr != list(range(1, n_lr + 1)):
-            need = set(range(1, n_lr + 1))
-            errs.append(f'1.1.4: нет ЛР {sorted(need - set(lr))[:20]}, лишние ЛР {sorted(set(lr) - need)[:20]} (нужно ЛР 1…{n_lr})')
+    check_lr(text, errs, n_lr, False)
 
     for sec in ('1. ', '2. ', '3. ', '4. ', '5. '):
         if not any(t.upper().startswith(sec) and len(t) < 160 for t in text):
             errs.append(f'нет раздела «{sec.strip()}»')
+
+    for bad in ('undefined', 'null', 'NaN', '[object Object]'):
+        n = len(re.findall(r'(?<![\w-])' + re.escape(bad) + r'(?![\w-])', full))
+        if n:
+            errs.append(f'в тексте «{bad}» ({n}) — не подставились данные')
 
     for rx, why in [(r'\[Ф\. ?И\. ?О\.[^\]]*\]', 'не заполнены Ф. И. О.'), (r'\[проверить[^\]]*\]', 'пометки [проверить]'), (r'_{4,}', 'пустые поля ____')]:
         n = len(re.findall(rx, full))

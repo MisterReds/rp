@@ -1,0 +1,42 @@
+{
+  "kind": "ud",
+  "fgos": "../../data/fgos/10.02.05.json",
+  "vospitanie": "../../data/vospitanie/spet_2026-2027.json",
+  "plan": "../../data/plans/OZ-2501_OP01.tsv",
+  "pop": "../../data/pop/10.02.05_OP01.json",
+  "ktp": "../../data/ktp/OZ-2501_OP01.json",
+  "ud": "ОП.01",
+  "group": "ОЗ-2501",
+  "form": "очная",
+  "year": 2026,
+  "course_offset": 0,
+  "org": {
+    "ministry": "Министерство образования Сахалинской области",
+    "type": "Государственное бюджетное профессиональное образовательное учреждение",
+    "name": "«Сахалинский промышленно-экономический техникум»",
+    "short": "ГБПОУ «СПЭТ»",
+    "city": "Южно-Сахалинск",
+    "approver": "Заместитель директора по УПР"
+  },
+  "people": {
+    "developer": "____________________, преподаватель ГБПОУ «СПЭТ»",
+    "pcc_head": "____________________",
+    "ms_head": "____________________"
+  },
+  "pcc": "информационных технологий",
+  "competence": "[проверить]",
+  "content": "content.json",
+  "output": "РП_ОП.01_ОЗ-2501_с_ФОС.docx",
+  "hints": {
+    "general": ""
+  },
+  "llm": {
+    "provider": "openai",
+    "base_url": "https://api.openai.com/v1",
+    "model": "",
+    "api_key_env": "LLM_API_KEY",
+    "temperature": 0.4,
+    "json_mode": true
+  },
+  "_comment": "Паспорт документа (учебная дисциплина). Пути — относительно этого файла. kind: ud — режим «учебная дисциплина», docs/formats.md."
+}

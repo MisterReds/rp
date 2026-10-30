@@ -2,6 +2,7 @@
 name: fgos-extractor
 description: ФГОС → data/fgos/КОД.json: реквизиты, ОК, ВД, ПК дословно, сверка с исходником. Использовать для новой специальности или нового ПМ.
 tools: Read, Write, Edit, Bash, Grep, Glob
+model: haiku
 ---
 
 Ты — роль `fgos-extractor` в репозитории rpgen (рабочая программа ПМ + ФОС одним .docx по шаблону ГБПОУ «СПЭТ»).

@@ -19,7 +19,7 @@ function contextBlock(ctx) {
     `Модуль: ${c.meta.pm} «${c.meta.pm_name}» (${c.meta.vd}), объём ${c.meta.total_hours} ч, группа ${pj.group}, форма обучения ${pj.form}.`,
     'Профессиональные компетенции модуля (ФГОС):',
     ...c.meta.pk.map(([k, n]) => `${k}. ${n}`),
-    'Общие компетенции: ' + fgos.ok.map(([k, n]) => `${k} — ${n}`).join('; '),
+    'Общие компетенции: ' + fgos.ok.filter(x => !(c.meta.ok && c.meta.ok.length) || c.meta.ok.includes(x[0])).map(([k, n]) => `${k} — ${n}`).join('; '),
     'Состав модуля по учебному плану:',
     ...c.mdk.map(m => `${m.code} «${m.name}» (${m.section}): теория ${m.T} ч, практика ${m.P} ч; ` + m.sems.map(b => `${b.label} — ${b.hours} ч${b.form ? ` (${FORM_NAMES[b.form] || b.form})` : ''}`).join(', ')),
     ...c.up.map(u => `${u.code} учебная практика: ${u.label} — ${u.hours} ч${u.form ? ` (${FORM_NAMES[u.form] || u.form})` : ''}`),
@@ -77,10 +77,10 @@ function listStages(ctx) {
     apply: d => { d.themes.forEach((th, i) => { m.themes[i].theory = th.theory; m.themes[i].codes = th.codes; }); },
   }));
 
-  c.mdk.filter(m => m.course_project).forEach(m => S.push({
+  c.mdk.filter(m => m.course_project && !m.custom).forEach(m => S.push({
     id: `course:${m.code}`, title: `Курсовой проект ${m.code} (${m.K} ч)`,
     prompt: () => tpl('course', { ...vars0, mdk_code: m.code, mdk_name: m.name, hours: m.K }),
-    check: d => { const e = []; const sum = (d.stages || []).reduce((a, x) => a + (Number(x[1]) || 0), 0); if ((d.topics || []).length < 10) e.push('topics: нужно не меньше 10 тем'); if (sum !== m.K) e.push(`stages: сумма ${sum} ч, нужно ${m.K}`); (d.stages || []).forEach(x => { if (x[1] % LESSON) e.push(`этап «${x[0]}» не кратен 2 ч`); }); return e; },
+    check: d => { const e = []; const sum = (d.stages || []).reduce((a, x) => a + (Number(x[1]) || 0), 0); const popT = pop.course_topics || []; const fromPop = popT.length > 0 && popT.length < 10 && (d.topics || []).length === popT.length && d.topics.every(t => popT.includes(t)); if ((d.topics || []).length < 10 && !fromPop) e.push('topics: нужно не меньше 10 тем (или все темы ПОП дословно, если в ПОП их меньше 10)'); if (sum !== m.K) e.push(`stages: сумма ${sum} ч, нужно ${m.K}`); (d.stages || []).forEach(x => { if (x[1] % LESSON) e.push(`этап «${x[0]}» не кратен 2 ч`); }); return e; },
     apply: d => { m.course_project = { hours: m.K, topics: d.topics, stages: d.stages }; },
   }));
 
@@ -154,7 +154,7 @@ function listStages(ctx) {
       const eq = d.equipment || {};
       if (!(eq.cabinet || []).length) e.push('equipment.cabinet: пусто');
       if (!(eq.lab || []).length && !(eq.workshop || []).length) e.push('equipment.lab / equipment.workshop: нужно оснащение лаборатории или мастерской');
-      [...okList, 'none'].forEach(k => { if (!nonEmpty((d.lr_methods || {})[k])) e.push(`lr_methods["${k}"]: пусто`); });
+      okList.forEach(k => { if (!nonEmpty((d.lr_methods || {})[k])) e.push(`lr_methods["${k}"]: пусто`); });
       return e;
     },
     apply: d => { c.program.conditions = { equipment: d.equipment, software: d.software || [] }; c.program.lr_methods = d.lr_methods; },

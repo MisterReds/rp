@@ -28,7 +28,7 @@ function themeLessons(th) {
       const k = Math.max(1, (l.h || LESSON) / LESSON);
       for (let j = 1; j <= k; j++) {
         if (l.k === 'T') out.push({ kind: 'T', title: l.t, att: !!l.att });
-        else out.push({ kind: 'P', n: `${th.num || th.name || 'x'}#${i}`, title: l.t, part: j, parts: k });
+        else out.push({ kind: 'P', n: `${th.num || th.name || 'x'}#${i}`, title: l.t, part: j, parts: k, ...(l.att ? { att: true } : {}), ...(l.nopoop ? { nopoop: true } : {}) });
       }
     });
     return out;
@@ -58,7 +58,8 @@ function mdkBlocks(m) {
   const att = attSems(m);
   // каждая практическая пара — отдельная практическая работа со своим номером (сквозной внутри МДК)
   let pw = 0;
-  seq.forEach(l => { if (l.kind === 'P') l.pw = ++pw; });
+  let pz = 0; // занятия КТП, которых нет в перечне работ ПООП (nopoop), нумеруются отдельно: «Практическое занятие № N»
+  seq.forEach(l => { if (l.kind === 'P') { if (l.nopoop) l.pw = ++pz; else l.pw = ++pw; } });
   let k = 0;
   let num = 0;
   const blocks = (m.sems || []).map(s => {
@@ -74,16 +75,28 @@ function mdkBlocks(m) {
       if (g && g.ti === l.ti) g.lessons.push(l);
       else groups.push({ ti: l.ti, theme: m.themes[l.ti], cont: groups.length === 0 && l !== seq[0] && seq[seq.indexOf(l) - 1] && seq[seq.indexOf(l) - 1].ti === l.ti, lessons: [l] });
     });
-    const T = items.filter(x => x.kind === 'T').length * LESSON;
-    const P = items.filter(x => x.kind === 'P').length * LESSON;
-    return { ...s, T, P, groups, short: n - items.length };
+    // пара зачёта идёт в часы того вида, из которых взята: у МДК без теории по плану — в практику
+    const attP = x => x.att && !m.T;
+    const T = items.filter(x => x.kind === 'T' && !attP(x)).length * LESSON;
+    const P = items.filter(x => x.kind === 'P' || attP(x)).length * LESSON;
+    // самостоятельная работа семестра (m.sr) — вне пар и вне сквозной нумерации занятий
+    const sr = (m.sr || []).filter(x => x.sem === s.sem);
+    return { ...s, T, P, groups, short: n - items.length, sr, S: sr.reduce((a, x) => a + (Number(x.hours) || 0), 0) };
   });
   return { blocks, total: seq.length + att.length, placed: Math.min(k, seq.length) };
 }
 
+// Номер темы для сопоставления: «Тема 1.2.» и «1.2» — одно и то же
+const themeKey = x => ((String(x || '').match(/\d+(?:\.\d+)*/) || [''])[0]);
+// Часы самостоятельной работы МДК (sr[].hours) и из них на курсовой проект (sr[].cp)
+const srHours = m => (m.sr || []).reduce((a, x) => a + (Number(x.hours) || 0), 0);
+const srCpHours = m => (m.sr || []).filter(x => x.cp).reduce((a, x) => a + (Number(x.hours) || 0), 0);
+// Задания СР: строка или [текст, часы]
+const srTasks = e => (e.tasks || []).map(t => (Array.isArray(t) ? [t[0], Number(t[1]) || 0] : [t, 0]));
+
 // Подпись практического занятия: «Практическая работа № N. Название (часть k)»
 function practiceLabel(l) {
-  return `Практическая работа № ${l.pw}. ${pairTitle(l)}`;
+  return `${l.nopoop ? 'Практическое занятие' : 'Практическая работа № ' + l.pw}. ${pairTitle(l)}`; // nopoop — занятие КТП, которого нет в перечне работ ПООП
 }
 
 function pairTitle(l) {
@@ -105,4 +118,4 @@ const ppItems = w => (w.days || []).map(d => (Array.isArray(d) ? [d[0], Number(d
 const ppText = w => ppItems(w).map(x => x[0]);
 const ppHours = w => ppItems(w).reduce((a, x) => a + x[1], 0);
 
-module.exports = { attSems, ATT_FORMS, ppItems, ppText, ppHours, LESSON, distribute, themeLessons, mdkBlocks, practiceLabel, pairTitle, pwMap };
+module.exports = { themeKey, srHours, srCpHours, srTasks, attSems, ATT_FORMS, ppItems, ppText, ppHours, LESSON, distribute, themeLessons, mdkBlocks, practiceLabel, pairTitle, pwMap };

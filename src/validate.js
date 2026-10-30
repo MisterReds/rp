@@ -1,7 +1,7 @@
 // Строгая проверка наполнения перед сборкой документа.
 // Ошибки (errors) блокируют сборку, предупреждения (warnings) — нет.
 'use strict';
-const { LESSON, mdkBlocks, attSems, ppItems, ppText, ppHours } = require('./sequence.js');
+const { LESSON, mdkBlocks, attSems, ppItems, ppText, ppHours, themeKey, srHours, srCpHours, srTasks } = require('./sequence.js');
 const PP_DAY = 6;
 
 const OK_CODES = ['ОК 01', 'ОК 02', 'ОК 03', 'ОК 04', 'ОК 05', 'ОК 06', 'ОК 07', 'ОК 08', 'ОК 09'];
@@ -46,7 +46,7 @@ function validate(content, opts = {}) {
   if (stages.includes('mdk')) {
     const pkSeen = new Set();
     content.mdk.forEach(m => {
-      const sec = pop && pop.sections.find(s => s.mdk === m.code);
+      const sec = pop && pop.sections.find(s => s.mdk === (m.pop_mdk || m.code));
       if (pop && sec && !m.custom) {
         if (m.themes.length !== sec.themes.length) E(`${m.code}: тем ${m.themes.length}, в ПОП ${sec.themes.length} — темы ПОП нельзя добавлять и удалять`);
         sec.themes.forEach((pt, i) => {
@@ -97,9 +97,32 @@ function validate(content, opts = {}) {
       const titles = m.themes.flatMap(th => th.theory || []);
       const dup = titles.filter((x, i) => titles.indexOf(x) !== i);
       if (dup.length) W(`${m.code}: повторяются названия занятий: ${[...new Set(dup)].slice(0, 5).join('; ')}`);
+      // самостоятельная работа: m.sr = [{sem, hours, tasks, theme, cp}] — сумма по МДК = «Самостоятельная» плана
+      const planItem = opts.plan && (opts.plan.items || []).find(i => i.index === m.code);
+      if (Array.isArray(m.sr) && m.sr.length) {
+        m.sr.forEach((e, i) => {
+          const sp = `${m.code}, самостоятельная работа №${i + 1}`;
+          if (!(m.sems || []).some(s => s.sem === e.sem)) E(`${sp}: семестр sem=${e.sem} не входит в семестры МДК`);
+          if (!(Number(e.hours) > 0)) E(`${sp}: hours должно быть больше 0`);
+          if ((!Array.isArray(e.tasks) || !e.tasks.length) && !nonEmpty(e.intro)) W(`${sp}: нет заданий (tasks) — в документе будут только часы`);
+          const tk = srTasks(e);
+          tk.forEach(([t]) => { if (!nonEmpty(t)) E(`${sp}: пустое задание`); });
+          if (tk.length && tk.every(x => x[1] > 0) && tk.reduce((a, x) => a + x[1], 0) !== Number(e.hours)) E(`${sp}: часы заданий (${tk.reduce((a, x) => a + x[1], 0)}) не равны hours (${e.hours})`);
+          if (e.theme && !m.themes.some(th => themeKey(th.num) === themeKey(e.theme))) E(`${sp}: тема «${e.theme}» не найдена в МДК`);
+        });
+        if (srCpHours(m) > 0 && !m.course_project) E(`${m.code}: самостоятельная работа на курсовой проект (cp), а курсового проекта нет`);
+      }
+      if (planItem) {
+        const sh = srHours(m);
+        if (Array.isArray(m.sr) && sh !== planItem.self) E(`${m.code}: сумма часов самостоятельной работы (sr) ${sh} ≠ «Самостоятельная» по плану (${planItem.self})`);
+        if (!Array.isArray(m.sr) && planItem.self > 0) W(`${m.code}: по плану самостоятельная работа ${planItem.self} ч, а в наполнении нет sr — документ напишет, что СР нет`);
+      }
       if (m.course_project) {
         const cp = m.course_project;
-        if (!cp.topics_ref && (cp.topics || []).length < 10) E(`${m.code}: курсовой проект — нужно не меньше 10 тем`);
+        // тематика курсовых из ПОП дословно: если в ПОП меньше 10 тем, достаточно всех тем ПОП
+        const popTopics = (pop && pop.course_topics) || [];
+        const fromPop = popTopics.length > 0 && popTopics.length < 10 && (cp.topics || []).length === popTopics.length && cp.topics.every(t => popTopics.includes(t));
+        if (!cp.topics_ref && !fromPop && (cp.topics || []).length < 10) E(`${m.code}: курсовой проект — нужно не меньше 10 тем`);
         if (sumH(cp.stages) !== cp.hours) E(`${m.code}: этапы курсового проекта дают ${sumH(cp.stages)} ч, по плану ${cp.hours} ч`);
       }
     });
@@ -113,7 +136,7 @@ function validate(content, opts = {}) {
       let s = 0;
       u.works.forEach((w, i) => {
         if (!nonEmpty(w.name)) E(`${path}: вид работ №${i + 1} без названия`);
-        if (pop && (pop.up_works || []).length && !pop.up_works.includes(w.name)) E(`${path}: вид работ «${w.name}» отсутствует в ПОП (названия видов работ берутся из ПОП без изменений)`);
+        if (pop && !content._practice_source && (pop.up_works || []).length && !pop.up_works.includes(w.name)) E(`${path}: вид работ «${w.name}» отсутствует в ПОП (названия видов работ берутся из ПОП без изменений)`);
         (w.tasks || []).forEach(t => { if (!(t[1] > 0) || t[1] % LESSON) E(`${path}: «${t[0]}» — ${t[1]} ч, должно быть кратно ${LESSON}`); });
         parseCodes(w.codes).pk.forEach(x => { if (!pkList.includes(x)) E(`${path}: ${x} не относится к модулю`); });
         s += sumH(w.tasks);
@@ -121,7 +144,7 @@ function validate(content, opts = {}) {
       if (s !== u.hours) E(`${path}: занятия дают ${s} ч, по плану ${u.hours} ч`);
       if (['ДЗ', 'З'].includes(u.form)) { const lw = u.works[u.works.length - 1]; const lt = (lw.tasks || [])[(lw.tasks || []).length - 1] || []; if (!/зач[её]т/i.test(lt[0] || '') || lt[1] !== LESSON) E(`${path}: последней парой (${LESSON} ч) должен быть зачёт — сейчас «${lt[0]}», ${lt[1]} ч`); }
     });
-    if (pop && pop.up_works && content.up.length) { const used = content.up.flatMap(u => u.works.map(w => w.name)); pop.up_works.forEach(n => { if (!used.includes(n)) E(`Учебная практика: не включён вид работ ПОП «${n}»`); }); }
+    if (pop && pop.up_works && content.up.length && !content._practice_source) { const used = content.up.flatMap(u => u.works.map(w => w.name)); pop.up_works.forEach(n => { if (!used.includes(n)) E(`Учебная практика: не включён вид работ ПОП «${n}»`); }); }
   }
 
   if (stages.includes('pp')) {
@@ -132,12 +155,12 @@ function validate(content, opts = {}) {
       if (hrs !== u.hours) E(`${path}: пункты практики дают ${hrs} ч, по плану ${u.hours} ч`);
       u.works.forEach(w => ppItems(w).forEach(([t, h]) => { if (!(h > 0) || h % PP_DAY) E(`${path}: «${String(t).slice(0, 60)}» — ${h} ч, должно быть кратно ${PP_DAY} (дни по ${PP_DAY} ч)`); }));
       u.works.forEach(w => {
-        if (pop && (pop.pp_works || []).length && !pop.pp_works.includes(w.name)) E(`${path}: вид работ «${w.name}» отсутствует в ПОП`);
+        if (pop && !content._practice_source && (pop.pp_works || []).length && !pop.pp_works.includes(w.name)) E(`${path}: вид работ «${w.name}» отсутствует в ПОП`);
         ppText(w).forEach(d => { if (!nonEmpty(d)) E(`${path}: пустой день в «${w.name}»`); if (!u.form && /зач[её]т/i.test(d)) E(`${path}: аттестация по практике не предусмотрена, а в дне «${d}» указан зачёт`); });
         parseCodes(w.codes).pk.forEach(x => { if (!pkList.includes(x)) E(`${path}: ${x} не относится к модулю`); });
       });
     });
-    if (pop && pop.pp_works && content.pp.length) { const used = content.pp.flatMap(u => u.works.map(w => w.name)); pop.pp_works.forEach(n => { if (!used.includes(n)) E(`Производственная практика: не включён вид работ ПОП «${n}»`); }); }
+    if (pop && pop.pp_works && content.pp.length && !content._practice_source) { const used = content.pp.flatMap(u => u.works.map(w => w.name)); pop.pp_works.forEach(n => { if (!used.includes(n)) E(`Производственная практика: не включён вид работ ПОП «${n}»`); }); }
   }
 
   if (stages.includes('program')) {

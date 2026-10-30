@@ -56,7 +56,7 @@ function lint(c) {
   c.pp.forEach(u => {
     const all = (u.works || []).flatMap(w => (w.days || []).map(d => (Array.isArray(d) ? d[0] : d)));
     dup(all).forEach(x => E(`${u.code} ${u.label}: день «${x}» повторяется`));
-    if (!u.form && /зач[её]т|аттестаци/i.test(all.join(' '))) E(`${u.code}: в днях производственной практики упомянут зачёт/аттестация — она не проводится`);
+    if (!u.form && /зач[её]т|промежуточн\S*\s+аттестаци|итогов\S*\s+аттестаци|аттестаци\S*\s+в\s+форме|аттестаци\S*\s+по\s+(?:практик|ПП)/i.test(all.join(' '))) E(`${u.code}: в днях производственной практики упомянут зачёт/аттестация — она не проводится`);
   });
 
   // 4. тесты
@@ -123,4 +123,4 @@ function bannedIn(d) {
   const txt = JSON.stringify(d, (k, v) => (k === 'name' ? undefined : v));
   return BANNED.filter(([re]) => re.test(txt)).map(([re, why]) => `«${txt.match(re)[0]}»: ${why} — убери из ответа`);
 }
-module.exports = { lint, bannedIn, norm, near, dup, LESSON_BAD, VAGUE_OPTION };
+module.exports = { lint, bannedIn, norm, near, dup, LESSON_BAD, VAGUE_OPTION, BANNED };
