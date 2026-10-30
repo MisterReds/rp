@@ -304,6 +304,11 @@ def main():
     labs_arg = None
     ok_map = None
     notes = []
+    source_label = None
+    if '--source' in sys.argv:  # название источника для _source/_source_doc (например, «ПОП СПО по ФГОС 2023»)
+        i = sys.argv.index('--source')
+        source_label = sys.argv[i + 1]
+        del sys.argv[i:i + 2]
     while '--note' in sys.argv:  # дополнительная запись в _notes (например, причина замены прежнего файла)
         i = sys.argv.index('--note')
         notes.append(sys.argv[i + 1])
@@ -479,6 +484,10 @@ def main():
         out['_notes'].append(f'В ПОП номера практических занятий повторяются или идут с пропусками ({labs}) — оставлены как в ПОП.')
     if out.pop('_numbered_by_order', False):
         out['_notes'].append('В ПОП практические и лабораторные занятия не пронумерованы — номера в JSON присвоены по порядку следования в тематическом плане (1, 2, 3 …); в рабочей программе номера практических работ сквозные по занятиям.')
+    if source_label:
+        out['_source'] = f'{source_label}, приложение {app}, «Примерная рабочая программа дисциплины». Текст переносится в рабочую программу без изменений.'
+        out['_source_doc'] = f'{source_label}, приложение {app} (дисциплина {code}), .docx'
+    out['_notes'].extend(notes)
     nums = [re.findall(r'\d+', t['num']) for sct in out['sections'] for t in sct['themes']]
     out['_notes'].append('Раздел 4 ПОП: «Примеры форм и методов контроля и оценки» — примеры, не обязательный перечень; рабочая программа использует подходящие из них.')
     with open(out_path, 'w', encoding='utf-8') as f:
