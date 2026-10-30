@@ -96,7 +96,7 @@ const srTasks = e => (e.tasks || []).map(t => (Array.isArray(t) ? [t[0], Number(
 
 // Подпись практического занятия: «Практическая работа № N. Название (часть k)»
 function practiceLabel(l) {
-  return `${l.nopoop ? 'Практическое занятие' : 'Практическая работа'} № ${l.pw}. ${pairTitle(l)}`; // nopoop — занятие КТП, которого нет в перечне работ ПООП
+  return `${l.nopoop ? 'Практическое занятие' : 'Практическая работа № ' + l.pw}. ${pairTitle(l)}`; // nopoop — занятие КТП, которого нет в перечне работ ПООП
 }
 
 function pairTitle(l) {
